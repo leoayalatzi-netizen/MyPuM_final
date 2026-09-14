@@ -50,4 +50,85 @@ jobs:
             gradle-
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon --console=plain
+        shell: bash
+        run: |
+          set +e
+
+          ./gradlew assembleDebug \
+            --stacktrace \
+            --no-daemon \
+            --console=plain \
+            2>&1 | tee build.log
+
+          STATUS=${PIPESTATUS[0]}
+
+          echo ""
+          echo "============================================================"
+          echo "                 RESULTADO DE COMPILACIÓN"
+          echo "============================================================"
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "✅ BUILD EXITOSO"
+          else
+            echo "❌ BUILD FALLIDO"
+            echo ""
+            echo "================ ERRORES KOTLIN ================="
+
+            grep -nE \
+              '(^e: |error:|Unresolved reference:|Type mismatch:|Cannot access |Expecting |Overload resolution ambiguity|This declaration is not allowed|None of the following functions)' \
+              build.log || true
+
+            echo ""
+            echo "================ ARCHIVOS .KT CON ERROR ================="
+
+            grep -nE \
+              'e: file:///.*\.kt:[0-9]+:[0-9]+' \
+              build.log || true
+
+            echo ""
+            echo "================ ÚLTIMAS 100 LÍNEAS ================="
+
+            tail -n 100 build.log
+
+            echo ""
+            echo "============================================================"
+            echo "              FIN DEL DIAGNÓSTICO"
+            echo "============================================================"
+          fi
+
+          echo "## Resultado de compilación" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -eq 0 ]; then
+            echo "### ✅ BUILD EXITOSO" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ BUILD FALLIDO" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Errores Kotlin" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+
+            grep -nE \
+              '(^e: |error:|Unresolved reference:|Type mismatch:|Cannot access |Expecting |Overload resolution ambiguity|This declaration is not allowed|None of the following functions)' \
+              build.log >> "$GITHUB_STEP_SUMMARY" || true
+
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Archivos Kotlin afectados" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+
+            grep -nE \
+              'e: file:///.*\.kt:[0-9]+:[0-9]+' \
+              build.log >> "$GITHUB_STEP_SUMMARY" || true
+
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          exit "$STATUS"
+
+      - name: Upload compilation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: build.log
+          if-no-files-found: ignore
