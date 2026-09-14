@@ -50,4 +50,4 @@ jobs:
             gradle-
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: ./gradlew assembleDebug --stacktrace --no-daemon --console=plain
