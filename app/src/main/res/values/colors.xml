@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mypum_blue">#0066FF</color>
+    <color name="mypum_blue_dark">#0052CC</color>
+    <color name="mypum_dark">#1A1F36</color>
+    <color name="mypum_white">#FFFFFF</color>
+    <color name="ic_launcher_background">#0066FF</color>
+</resources>

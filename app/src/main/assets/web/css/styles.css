@@ -1,0 +1,22 @@
+:root {
+    --primary: #0066FF;
+    --dark: #1A1F36;
+    --bg: #F8FAFC;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+}
+
+#app {
+    padding: 24px;
+    text-align: center;
+}
