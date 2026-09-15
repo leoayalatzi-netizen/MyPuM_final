@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build MyPuM
@@ -23,31 +26,35 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          accept-android-sdk-licenses: true
 
-      - name: Install Android SDK packages
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify toolchain
         run: |
-          sdkmanager "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
+          echo "=== JAVA ==="
+          java -version
 
-      - name: Show project information
-        run: |
-          echo "=== COMMIT ==="
-          git rev-parse HEAD
+          echo
+          echo "=== SDK ==="
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
+          echo
+          echo "=== SDKMANAGER ==="
+          sdkmanager --version
+
+          echo
           echo "=== GRADLE ==="
+          chmod +x ./gradlew
           ./gradlew --version
 
-          echo "=== PROJECT ==="
-          find app/src/main -type f | sort | head -100
-
-      - name: Clean
-        run: |
-          ./gradlew clean \
-            --stacktrace \
-            --no-daemon
-
       - name: Build Debug APK
+        id: build
+        shell: bash
         run: |
           set -o pipefail
 
@@ -70,38 +77,36 @@ jobs:
             | sort
 
           echo
-          echo "=== APP BUILD DIRECTORY ==="
+          echo "=== APP BUILD ==="
 
           if [ -d app/build ]; then
-            find app/build -maxdepth 5 -type f | sort
+            find app/build -maxdepth 6 -type f | sort
           else
             echo "app/build NO EXISTE"
           fi
 
-      - name: Verify APK exists
+      - name: Prepare APK
+        if: success()
         run: |
+          set -e
+
           APK="$(find app/build -type f -name "*.apk" | head -n 1)"
 
           if [ -z "$APK" ]; then
-            echo "::error::Gradle terminó sin generar ningún APK."
-            echo "Revisa el build.log anterior."
+            echo "::error::Gradle terminó correctamente pero no se encontró ningún APK."
             exit 1
           fi
 
-          echo "APK encontrado:"
-          echo "$APK"
-
-      - name: Prepare APK
-        run: |
           mkdir -p artifacts
-
-          APK="$(find app/build -type f -name "*.apk" | head -n 1)"
 
           cp "$APK" artifacts/MyPuM-debug.apk
 
+          echo
+          echo "=== APK FINAL ==="
           ls -lh artifacts/MyPuM-debug.apk
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: MyPuM-debug-apk
