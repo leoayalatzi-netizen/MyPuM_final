@@ -2,6 +2,7 @@ package com.mypum.pos.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
@@ -35,6 +36,7 @@ private data class Destination(
 private val destinations = listOf(
     Destination("venta", "Venta", Icons.Default.PointOfSale),
     Destination("inventario", "Inventario", Icons.Default.Inventory2),
+    Destination("egresos", "Egresos", Icons.Default.AccountBalanceWallet),
     Destination("reportes", "Reportes", Icons.Default.Assessment)
 )
 
@@ -87,10 +89,6 @@ fun MyPuMNavHost(nav: NavHostController) {
                 InventarioScreen()
             }
 
-            composable("reportes") {
-                ReportesScreen()
-            }
-
             composable("egresos") {
                 val viewModel: EgresosViewModel = hiltViewModel()
                 val turno by viewModel.turnoActivo.collectAsStateWithLifecycle()
@@ -102,6 +100,10 @@ fun MyPuMNavHost(nav: NavHostController) {
                     onRegistrar = viewModel::registrar,
                     onFinished = { nav.popBackStack() }
                 )
+            }
+
+            composable("reportes") {
+                ReportesScreen()
             }
         }
     }
