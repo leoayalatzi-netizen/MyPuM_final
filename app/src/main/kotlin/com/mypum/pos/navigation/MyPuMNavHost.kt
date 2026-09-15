@@ -14,17 +14,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.mypum.pos.feature.egresos.EgresosScreen
+import com.mypum.pos.feature.egresos.EgresosViewModel
 import com.mypum.pos.feature.inventario.InventarioScreen
 import com.mypum.pos.feature.reportes.ReportesScreen
 import com.mypum.pos.feature.venta.VentaScreen
-import com.mypum.pos.feature.egresos.EgresosScreen
-import com.mypum.pos.feature.egresos.EgresosViewModel
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private data class Destination(
     val route: String,
@@ -90,20 +90,19 @@ fun MyPuMNavHost(nav: NavHostController) {
             composable("reportes") {
                 ReportesScreen()
             }
+
+            composable("egresos") {
+                val viewModel: EgresosViewModel = hiltViewModel()
+                val turno by viewModel.turnoActivo.collectAsStateWithLifecycle()
+                val egresos by viewModel.egresos.collectAsStateWithLifecycle()
+
+                EgresosScreen(
+                    turnoId = turno?.id ?: 0L,
+                    egresos = egresos,
+                    onRegistrar = viewModel::registrar,
+                    onFinished = { nav.popBackStack() }
+                )
+            }
         }
     }
-
-        composable("egresos") {
-            val viewModel: EgresosViewModel = hiltViewModel()
-            val turno by viewModel.turnoActivo.collectAsStateWithLifecycle()
-            val egresos by viewModel.egresos.collectAsStateWithLifecycle()
-
-            EgresosScreen(
-                turnoId = turno?.id ?: 0L,
-                egresos = egresos,
-                onRegistrar = viewModel::registrar,
-                onFinished = { nav.popBackStack() }
-            )
-        }
-
 }
