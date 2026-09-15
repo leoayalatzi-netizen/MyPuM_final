@@ -62,6 +62,7 @@ jobs:
             --stacktrace \
             --info \
             --no-daemon \
+            --console=plain \
             2>&1 | tee build.log
 
       - name: Locate APK
