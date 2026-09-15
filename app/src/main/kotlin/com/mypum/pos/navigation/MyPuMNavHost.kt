@@ -9,7 +9,7 @@ import com.mypum.pos.feature.reportes.ReportesScreen
  val nav=rememberNavController()
  NavHost(navController=nav,startDestination="login"){
   composable("login"){LoginScreen{nav.navigate("venta")}}
-  composable("venta"){VentaScreen()}
+  composable("venta"){VentaScreen{nav.navigate("inventario")}}
   composable("inventario"){InventarioScreen()}
   composable("reportes"){ReportesScreen()}
  }
