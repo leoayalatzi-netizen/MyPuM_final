@@ -362,6 +362,8 @@ fun VentaScreen(
     }
 
     if (showCloseTurno) {
+        var efectivoContado by remember { mutableStateOf("") }
+
         AlertDialog(
             onDismissRequest = {
                 showCloseTurno = false
@@ -370,17 +372,43 @@ fun VentaScreen(
                 Text("Cerrar turno")
             },
             text = {
-                Text(
-                    "¿Deseas cerrar el turno actual? " +
-                        "Las ventas realizadas quedarán registradas."
-                )
+                Column {
+                    Text(
+                        "Cuenta el efectivo de la caja e ingresa " +
+                            "el importe contado."
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = efectivoContado,
+                        onValueChange = {
+                            efectivoContado = it
+                        },
+                        singleLine = true,
+                        label = {
+                            Text("Efectivo contado")
+                        },
+                        prefix = {
+                            Text("$")
+                        }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "El sistema calculará automáticamente " +
+                            "el efectivo esperado y la diferencia."
+                    )
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showCloseTurno = false
-                        viewModel.closeTurno()
-                    }
+                        viewModel.closeTurno(efectivoContado)
+                    },
+                    enabled = efectivoContado.toBigDecimalOrNull() != null
                 ) {
                     Text("Cerrar turno")
                 }
