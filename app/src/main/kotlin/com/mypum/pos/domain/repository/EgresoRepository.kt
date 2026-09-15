@@ -5,9 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface EgresoRepository {
 
-    fun observeAll(): Flow<List<Egreso>>
+    suspend fun registrar(egreso: Egreso): Long
 
     fun byTurno(turnoId: Long): Flow<List<Egreso>>
-
-    suspend fun registrar(egreso: Egreso): Long
 }
