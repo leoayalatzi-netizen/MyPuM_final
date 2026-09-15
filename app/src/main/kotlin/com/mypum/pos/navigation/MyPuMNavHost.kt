@@ -24,96 +24,58 @@ import com.mypum.pos.feature.login.LoginScreen
 import com.mypum.pos.feature.reportes.ReportesScreen
 import com.mypum.pos.feature.venta.VentaScreen
 
-private data class MainDestination(
-    val route: String,
-    val label: String,
-    val icon: ImageVector
-)
+private data class Destination(val route: String, val label: String, val icon: ImageVector)
 
 private val destinations = listOf(
-    MainDestination(
-        route = "venta",
-        label = "Venta",
-        icon = Icons.Default.PointOfSale
-    ),
-    MainDestination(
-        route = "inventario",
-        label = "Inventario",
-        icon = Icons.Default.Inventory2
-    ),
-    MainDestination(
-        route = "reportes",
-        label = "Reportes",
-        icon = Icons.Default.Assessment
-    )
+    Destination("venta", "Venta", Icons.Default.PointOfSale),
+    Destination("inventario", "Inventario", Icons.Default.Inventory2),
+    Destination("reportes", "Reportes", Icons.Default.Assessment)
 )
 
 @Composable
 fun MyPuMNavHost() {
     val nav = rememberNavController()
-
-    val backStackEntry by nav.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
-
-    val showMainNavigation = currentRoute != "login"
+    val backStack by nav.currentBackStackEntryAsState()
+    val currentRoute = backStack?.destination?.route
 
     Scaffold(
         bottomBar = {
-            if (showMainNavigation) {
+            if (currentRoute != "login") {
                 NavigationBar {
                     destinations.forEach { destination ->
                         NavigationBarItem(
                             selected = currentRoute == destination.route,
                             onClick = {
                                 nav.navigate(destination.route) {
+                                    popUpTo("venta") { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
                             },
-                            icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = destination.label
-                                )
-                            },
-                            label = {
-                                Text(destination.label)
-                            }
+                            icon = { Icon(destination.icon, destination.label) },
+                            label = { Text(destination.label) }
                         )
                     }
                 }
             }
         }
-    ) { paddingValues ->
-
+    ) { padding ->
         NavHost(
             navController = nav,
             startDestination = "login",
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(padding)
         ) {
-
             composable("login") {
                 LoginScreen {
                     nav.navigate("venta") {
-                        popUpTo("login") {
-                            inclusive = true
-                        }
+                        popUpTo("login") { inclusive = true }
                         launchSingleTop = true
                     }
                 }
             }
-
-            composable("venta") {
-                VentaScreen()
-            }
-
-            composable("inventario") {
-                InventarioScreen()
-            }
-
-            composable("reportes") {
-                ReportesScreen()
-            }
+            composable("venta") { VentaScreen() }
+            composable("inventario") { InventarioScreen() }
+            composable("reportes") { ReportesScreen() }
         }
     }
 }

@@ -1,4 +1,11 @@
 package com.mypum.pos.data.repository
-import com.mypum.pos.domain.repository.ReporteRepository
+
+import com.mypum.pos.data.local.dao.ReporteDao
 import com.mypum.pos.domain.model.ProductoTop
-class ReporteRepositoryImpl:ReporteRepository { override suspend fun topProductos()=emptyList<ProductoTop>() }
+import com.mypum.pos.domain.repository.ReporteRepository
+
+class ReporteRepositoryImpl(
+    private val dao: ReporteDao
+) : ReporteRepository {
+    override suspend fun topProductos(): List<ProductoTop> = dao.topProductos()
+}

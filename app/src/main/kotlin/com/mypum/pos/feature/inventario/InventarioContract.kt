@@ -8,11 +8,10 @@ import com.mypum.pos.domain.model.Producto
 data class InventarioContractState(
     val loading: Boolean = true,
     val productos: List<Producto> = emptyList(),
-    val message: String? = null
+    val message: String? = null,
+    val editing: Producto? = null,
+    val showEditor: Boolean = false
 ) : UiState
 
-sealed interface InventarioContractEvent : UiEvent {
-    data object Recargar : InventarioContractEvent
-}
-
+sealed interface InventarioContractEvent : UiEvent
 sealed interface InventarioContractEffect : UiEffect
