@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Cash
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.PointOfSale
@@ -349,7 +348,7 @@ private fun TurnoCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Cash,
+                    imageVector = Icons.Default.PointOfSale,
                     contentDescription = null,
                     tint =
                         if (selected)
