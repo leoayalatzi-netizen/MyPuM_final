@@ -1,2 +1,2 @@
-package com.mypum.pos.domain.model.enum
+package com.mypum.pos.domain.model.enums
 enum class MetodoPago { EFECTIVO, TARJETA, TRANSFERENCIA }
