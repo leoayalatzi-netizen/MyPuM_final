@@ -20,19 +20,60 @@ class ReportesViewModel @Inject constructor(
     private val productoRepository: ProductoRepository,
     private val reporteRepository: ReporteRepository
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ReportesContractState())
-    val state: StateFlow<ReportesContractState> = _state.asStateFlow()
+
+    private val _state =
+        MutableStateFlow(ReportesContractState())
+
+    val state: StateFlow<ReportesContractState> =
+        _state.asStateFlow()
 
     init {
+        cargar()
+    }
+
+    private fun cargar() {
+
         viewModelScope.launch {
-            combine(ventaRepository.observeAll(), productoRepository.observeAll()) { ventas, productos -> ventas to productos }
-                .catch { error -> _state.value = _state.value.copy(loading = false, message = error.message) }
+
+            combine(
+                ventaRepository.observeAll(),
+                productoRepository.observeAll()
+            ) { ventas, productos ->
+                ventas to productos
+            }
+                .catch { error ->
+
+                    _state.value =
+                        _state.value.copy(
+                            loading = false,
+                            message =
+                                error.message
+                                    ?: "No se pudieron cargar los reportes"
+                        )
+                }
                 .collect { (ventas, productos) ->
-                    val top = runCatching { reporteRepository.topProductos() }.getOrDefault(emptyList())
-                    _state.value = ReportesContractState(false, ventas, productos, top)
+
+                    val top =
+                        try {
+                            reporteRepository.topProductos()
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+
+                    _state.value =
+                        ReportesContractState(
+                            loading = false,
+                            ventas = ventas,
+                            productos = productos,
+                            topProductos = top,
+                            message = null
+                        )
                 }
         }
     }
 
-    fun clearMessage() { _state.value = _state.value.copy(message = null) }
+    fun clearMessage() {
+        _state.value =
+            _state.value.copy(message = null)
+    }
 }

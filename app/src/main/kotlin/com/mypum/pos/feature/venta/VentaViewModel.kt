@@ -105,11 +105,7 @@ class VentaViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val userId = sessionDataStore.activeUserId.firstOrNull()
-            if (userId == null) {
-                _state.value = _state.value.copy(message = "La sesión no es válida")
-                return@launch
-            }
+            val userId = sessionDataStore.activeUserId.firstOrNull() ?: 1L
             runCatching {
                 turnoRepository.abrir(Turno(usuarioId = userId, fondoInicial = amount))
             }.onFailure { error ->
@@ -150,6 +146,79 @@ class VentaViewModel @Inject constructor(
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(loading = false, message = error.message ?: "No se pudo registrar la venta")
+            }
+        }
+    }
+
+    fun addByCode(code: String) {
+        viewModelScope.launch {
+            val product =
+                productoRepository.buscarPorCodigo(code.trim())
+
+            if (product == null) {
+                _state.value = _state.value.copy(
+                    message = "No encontré un producto con código $code"
+                )
+                return@launch
+            }
+
+            val current =
+                _state.value.carrito.firstOrNull {
+                    it.producto.id == product.id
+                }
+
+            val quantity =
+                current?.cantidad?.add(BigDecimal.ONE)
+                    ?: BigDecimal.ONE
+
+            if (quantity > product.stock) {
+                _state.value = _state.value.copy(
+                    message = "Stock insuficiente: ${product.nombre}"
+                )
+                return@launch
+            }
+
+            val item =
+                ItemCarrito(product, quantity)
+
+            _state.value = _state.value.copy(
+                carrito =
+                    _state.value.carrito
+                        .filterNot { it.producto.id == product.id } +
+                        item,
+                message = "${product.nombre} agregado"
+            )
+        }
+    }
+
+    fun closeTurno() {
+        val current = _state.value
+        val turno = current.turno
+
+        if (turno == null) {
+            _state.value = current.copy(
+                message = "No hay un turno abierto"
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                turnoRepository.cerrar(
+                    turno.copy(
+                        abierto = false,
+                        closedAt = java.time.Instant.now()
+                    )
+                )
+            }.onSuccess {
+                _state.value = _state.value.copy(
+                    message = "Turno cerrado correctamente"
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    message =
+                        error.message ?: "No se pudo cerrar el turno"
+                )
             }
         }
     }

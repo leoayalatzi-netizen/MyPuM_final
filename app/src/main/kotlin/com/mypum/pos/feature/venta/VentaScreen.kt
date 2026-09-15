@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Remove
@@ -22,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,162 +43,610 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mypum.pos.domain.model.ItemCarrito
 import com.mypum.pos.domain.model.enums.MetodoPago
+import com.mypum.pos.feature.venta.scanner.BarcodeScannerDialog
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
-fun VentaScreen(viewModel: VentaViewModel = hiltViewModel()) {
+fun VentaScreen(
+    viewModel: VentaViewModel = hiltViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
     var showOpenTurno by remember { mutableStateOf(false) }
-    val filtered = state.productos.filter { product ->
-        state.query.isBlank() || product.nombre.contains(state.query, true) || product.codigo.orEmpty().contains(state.query, true)
-    }
+    var showScanner by remember { mutableStateOf(false) }
+    var showCloseTurno by remember { mutableStateOf(false) }
+
+    val turnoActual = state.turno
+
+    val filtered =
+        state.productos.filter { product ->
+            state.query.isBlank() ||
+                product.nombre.contains(state.query, true) ||
+                product.codigo.orEmpty().contains(state.query, true)
+        }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::requestCheckout, containerColor = MaterialTheme.colorScheme.primary) {
-                Icon(Icons.Default.PointOfSale, "Cobrar")
+            if (state.carrito.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = viewModel::requestCheckout
+                ) {
+                    Icon(
+                        Icons.Default.PointOfSale,
+                        contentDescription = "Cobrar"
+                    )
+                }
             }
         }
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PointOfSale, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.padding(6.dp))
-                Text("Venta", style = MaterialTheme.typography.headlineMedium)
-            }
-            val turnoActual = state.turno
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (turnoActual == null) "Sin turno abierto" else "Turno #${turnoActual.id}", color = if (turnoActual == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-                    Text("${state.carrito.size} artículos · ${money(state.total)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (turnoActual == null) TextButton(onClick = { showOpenTurno = true }) { Text("Abrir turno") }
-            }
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::search,
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 12.dp)
+        ) {
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                label = { Text("Buscar producto") }
-            )
-            Spacer(Modifier.height(10.dp))
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.PointOfSale,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(Modifier.padding(5.dp))
+
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Venta",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+
+                    Text(
+                        if (turnoActual == null)
+                            "Turno cerrado"
+                        else
+                            "Turno #${turnoActual.id} abierto",
+                        color =
+                            if (turnoActual == null)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (turnoActual == null) {
+                    Button(
+                        onClick = { showOpenTurno = true }
+                    ) {
+                        Text("Abrir")
+                    }
+                } else {
+                    TextButton(
+                        onClick = { showCloseTurno = true }
+                    ) {
+                        Text("Cerrar turno")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = viewModel::search,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null
+                        )
+                    },
+                    placeholder = {
+                        Text("Producto o código")
+                    }
+                )
+
+                IconButton(
+                    onClick = { showScanner = true }
+                ) {
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Escanear código"
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            if (state.carrito.isNotEmpty()) {
+
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        Modifier.padding(12.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "${state.carrito.size} artículos",
+                                style =
+                                    MaterialTheme.typography.titleMedium
+                            )
+
+                            Text(
+                                money(state.total),
+                                style =
+                                    MaterialTheme.typography.titleLarge,
+                                color =
+                                    MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        state.carrito.forEach {
+                            CartRow(it, viewModel)
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Button(
+                            onClick = viewModel::requestCheckout,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled =
+                                turnoActual != null
+                        ) {
+                            Text(
+                                "COBRAR  ${money(state.total)}"
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+            }
+
+            if (state.loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                )
+            }
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 12.dp)
+                verticalArrangement =
+                    Arrangement.spacedBy(6.dp),
+                contentPadding =
+                    PaddingValues(bottom = 80.dp)
             ) {
-                items(filtered, key = { it.id }) { product ->
-                    val inCart = state.carrito.firstOrNull { it.producto.id == product.id }
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(product.nombre, style = MaterialTheme.typography.titleMedium)
-                                Text("${money(product.precio)} · Stock ${product.stock.stripTrailingZeros().toPlainString()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                items(
+                    filtered,
+                    key = { it.id }
+                ) { product ->
+
+                    val inCart =
+                        state.carrito.firstOrNull {
+                            it.producto.id == product.id
+                        }
+
+                    Card(
+                        Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+
+                            Column(
+                                Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    product.nombre,
+                                    style =
+                                        MaterialTheme.typography.titleMedium
+                                )
+
+                                Text(
+                                    "${money(product.precio)}  ·  Stock ${
+                                        product.stock
+                                            .stripTrailingZeros()
+                                            .toPlainString()
+                                    }",
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
                             }
+
                             if (inCart == null) {
-                                IconButton(onClick = { viewModel.add(product.id) }, enabled = product.stock > BigDecimal.ZERO) { Icon(Icons.Default.Add, "Agregar") }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.add(product.id)
+                                    },
+                                    enabled =
+                                        product.stock >
+                                            BigDecimal.ZERO
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Agregar"
+                                    )
+                                }
+
                             } else {
-                                IconButton(onClick = { viewModel.decrease(product.id) }) { Icon(Icons.Default.Remove, "Quitar") }
-                                Text(inCart.cantidad.stripTrailingZeros().toPlainString())
-                                IconButton(onClick = { viewModel.add(product.id) }) { Icon(Icons.Default.Add, "Agregar") }
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.decrease(product.id)
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = "Quitar"
+                                    )
+                                }
+
+                                Text(
+                                    inCart.cantidad
+                                        .stripTrailingZeros()
+                                        .toPlainString()
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        viewModel.add(product.id)
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Agregar"
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-
-            if (state.carrito.isNotEmpty()) {
-                Divider()
-                Spacer(Modifier.height(8.dp))
-                state.carrito.forEach { CartRow(it, viewModel) }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("TOTAL", style = MaterialTheme.typography.titleLarge)
-                    Text(money(state.total), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                }
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = viewModel::requestCheckout, Modifier.fillMaxWidth()) { Text("Cobrar ${money(state.total)}") }
-                Spacer(Modifier.height(8.dp))
-            }
         }
     }
 
     state.message?.let { message ->
-        AlertDialog(onDismissRequest = viewModel::clearMessage, title = { Text("MyPuM") }, text = { Text(message) }, confirmButton = { TextButton(onClick = viewModel::clearMessage) { Text("OK") } })
+        AlertDialog(
+            onDismissRequest = viewModel::clearMessage,
+            title = { Text("MyPuM") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::clearMessage
+                ) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
-    if (state.showCheckout) CheckoutDialog(state.total, viewModel::closeCheckout, viewModel::confirmPayment)
-    if (showOpenTurno) OpenTurnoDialog(onDismiss = { showOpenTurno = false }) { fondo ->
-        showOpenTurno = false
-        viewModel.openTurno(fondo)
+    if (showOpenTurno) {
+        OpenTurnoDialog(
+            onDismiss = {
+                showOpenTurno = false
+            },
+            onConfirm = { fondo ->
+                showOpenTurno = false
+                viewModel.openTurno(fondo)
+            }
+        )
+    }
+
+    if (showCloseTurno) {
+        AlertDialog(
+            onDismissRequest = {
+                showCloseTurno = false
+            },
+            title = {
+                Text("Cerrar turno")
+            },
+            text = {
+                Text(
+                    "¿Deseas cerrar el turno actual? " +
+                        "Las ventas realizadas quedarán registradas."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCloseTurno = false
+                        viewModel.closeTurno()
+                    }
+                ) {
+                    Text("Cerrar turno")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showCloseTurno = false
+                    }
+                ) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showScanner) {
+        BarcodeScannerDialog(
+            onCode = { code ->
+                viewModel.addByCode(code); showScanner = false
+            },
+            onDismiss = {
+                showScanner = false
+            }
+        )
+    }
+
+    if (state.showCheckout) {
+        CheckoutDialog(
+            total = state.total,
+            onDismiss = viewModel::closeCheckout,
+            onConfirm = viewModel::confirmPayment
+        )
     }
 }
 
-
 @Composable
-private fun OpenTurnoDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun OpenTurnoDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
     var fondo by remember { mutableStateOf("0") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Abrir turno") },
+        title = {
+            Text("Abrir turno")
+        },
         text = {
             OutlinedTextField(
                 value = fondo,
                 onValueChange = { fondo = it },
                 singleLine = true,
-                label = { Text("Fondo inicial") }
+                label = {
+                    Text("Fondo inicial")
+                }
             )
         },
-        confirmButton = { Button(onClick = { onConfirm(fondo) }) { Text("Abrir") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(fondo)
+                }
+            ) {
+                Text("Abrir")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
     )
 }
 
 @Composable
-private fun CartRow(item: ItemCarrito, viewModel: VentaViewModel) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
+private fun CartRow(
+    item: ItemCarrito,
+    viewModel: VentaViewModel
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            Modifier.weight(1f)
+        ) {
             Text(item.producto.nombre)
-            Text("${item.cantidad.stripTrailingZeros().toPlainString()} × ${money(item.producto.precio)}", style = MaterialTheme.typography.bodySmall)
+
+            Text(
+                "${item.cantidad.stripTrailingZeros()} × " +
+                    money(item.producto.precio),
+                style =
+                    MaterialTheme.typography.bodySmall
+            )
         }
+
         Text(money(item.subtotal))
-        IconButton(onClick = { viewModel.remove(item.producto.id) }) { Icon(Icons.Default.Delete, "Eliminar") }
+
+        IconButton(
+            onClick = {
+                viewModel.remove(item.producto.id)
+            }
+        ) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Eliminar"
+            )
+        }
     }
 }
 
 @Composable
-private fun CheckoutDialog(total: BigDecimal, onDismiss: () -> Unit, onConfirm: (MetodoPago, String) -> Unit) {
-    var method by remember { mutableStateOf(MetodoPago.EFECTIVO) }
-    var recibido by remember { mutableStateOf(total.toPlainString()) }
+private fun CheckoutDialog(
+    total: BigDecimal,
+    onDismiss: () -> Unit,
+    onConfirm: (MetodoPago, String) -> Unit
+) {
+    var method by remember {
+        mutableStateOf(MetodoPago.EFECTIVO)
+    }
+
+    var recibido by remember {
+        mutableStateOf(total.toPlainString())
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Cobrar ${money(total)}") },
+
+        title = {
+            Column {
+                Text(
+                    "Cobrar",
+                    style =
+                        MaterialTheme.typography.titleMedium
+                )
+
+                Text(
+                    money(total),
+                    style =
+                        MaterialTheme.typography.headlineLarge,
+                    color =
+                        MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Método de pago")
-                MetodoPago.entries.forEach { option ->
-                    androidx.compose.material3.FilterChip(
-                        selected = method == option,
-                        onClick = { method = option },
-                        label = { Text(option.name.lowercase().replaceFirstChar(Char::uppercase)) }
-                    )
+
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(6.dp)
+                ) {
+
+                    MetodoButton(
+                        "EFECTIVO",
+                        method == MetodoPago.EFECTIVO,
+                        Modifier.weight(1f)
+                    ) {
+                        method = MetodoPago.EFECTIVO
+                    }
+
+                    MetodoButton(
+                        "TARJETA",
+                        method == MetodoPago.TARJETA,
+                        Modifier.weight(1f)
+                    ) {
+                        method = MetodoPago.TARJETA
+                    }
                 }
+
+                Row(
+                    Modifier.fillMaxWidth()
+                ) {
+                    MetodoButton(
+                        "TRANSFERENCIA",
+                        method == MetodoPago.TRANSFERENCIA,
+                        Modifier.fillMaxWidth()
+                    ) {
+                        method = MetodoPago.TRANSFERENCIA
+                    }
+                }
+
                 if (method == MetodoPago.EFECTIVO) {
-                    OutlinedTextField(recibido, { recibido = it }, label = { Text("Efectivo recibido") }, singleLine = true)
-                    val change = (recibido.toBigDecimalOrNull() ?: BigDecimal.ZERO).subtract(total)
-                    Text("Cambio: ${money(change.max(BigDecimal.ZERO))}")
+
+                    OutlinedTextField(
+                        value = recibido,
+                        onValueChange = {
+                            recibido = it
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = {
+                            Text("Efectivo recibido")
+                        }
+                    )
+
+                    val received =
+                        recibido.toBigDecimalOrNull()
+                            ?: BigDecimal.ZERO
+
+                    val change =
+                        received.subtract(total)
+                            .max(BigDecimal.ZERO)
+
+                    Text(
+                        "Cambio: ${money(change)}",
+                        style =
+                            MaterialTheme.typography.titleMedium
+                    )
                 }
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(method, recibido) }) { Text("Confirmar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        method,
+                        recibido
+                    )
+                }
+            ) {
+                Text("CONFIRMAR COBRO")
+            }
+        },
+
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
     )
 }
 
-private fun money(value: BigDecimal): String = NumberFormat.getCurrencyInstance(Locale("es", "MX")).format(value)
+@Composable
+private fun MetodoButton(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(text)
+        }
+    } else {
+        TextButton(
+            onClick = onClick,
+            modifier = modifier
+        ) {
+            Text(text)
+        }
+    }
+}
+
+private fun money(value: BigDecimal): String =
+    NumberFormat
+        .getCurrencyInstance(Locale("es", "MX"))
+        .format(value)
