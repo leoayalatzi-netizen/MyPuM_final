@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import com.mypum.pos.navigation.MyPuMNavHost
-import com.mypum.pos.ui.theme.MyPuMTheme
+import com.mypum.pos.designsystem.theme.MyPuMTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
