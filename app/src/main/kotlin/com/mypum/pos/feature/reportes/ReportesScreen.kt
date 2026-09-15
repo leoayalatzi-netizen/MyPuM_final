@@ -2,6 +2,7 @@ package com.mypum.pos.feature.reportes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,10 +26,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.math.BigDecimal
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun ReportesScreen(
@@ -52,34 +56,36 @@ fun ReportesScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+        contentPadding = PaddingValues(
             top = 16.dp,
             bottom = 24.dp
         )
     ) {
 
         item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Assessment,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Assessment,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
 
-                Spacer(Modifier.padding(6.dp))
+                    Spacer(Modifier.padding(6.dp))
+
+                    Text(
+                        text = "Reportes",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
 
                 Text(
-                    "Reportes",
-                    style = MaterialTheme.typography.headlineMedium
+                    text = "Resumen de operación",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Text(
-                "Resumen de operación",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         item {
@@ -88,17 +94,17 @@ fun ReportesScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 MetricCard(
-                    "Ventas",
-                    state.ventas.count { !it.cancelada }.toString(),
-                    Icons.Default.PointOfSale,
-                    Modifier.weight(1f)
+                    title = "Ventas",
+                    value = state.ventas.count { !it.cancelada }.toString(),
+                    icon = Icons.Default.PointOfSale,
+                    modifier = Modifier.weight(1f)
                 )
 
                 MetricCard(
-                    "Ingresos",
-                    money(state.totalVendido),
-                    Icons.Default.Assessment,
-                    Modifier.weight(1f)
+                    title = "Ingresos",
+                    value = money(state.totalVendido),
+                    icon = Icons.Default.Assessment,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -111,52 +117,40 @@ fun ReportesScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        "Indicadores",
+                        text = "Indicadores",
                         style = MaterialTheme.typography.titleLarge
                     )
 
                     Spacer(Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Ticket promedio")
-                        Text(money(state.ticketPromedio))
-                    }
+                    IndicatorRow(
+                        label = "Ticket promedio",
+                        value = money(state.ticketPromedio)
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Productos activos")
-                        Text(state.productos.size.toString())
-                    }
+                    IndicatorRow(
+                        label = "Productos activos",
+                        value = state.productos.size.toString()
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Stock bajo")
-                        Text(
-                            state.productos.count {
-                                it.stock <= it.stockMinimo
-                            }.toString()
-                        )
-                    }
+                    IndicatorRow(
+                        label = "Stock bajo",
+                        value = state.productos
+                            .count { it.stock <= it.stockMinimo }
+                            .toString()
+                    )
                 }
             }
         }
 
         item {
             Text(
-                "Productos más vendidos",
+                text = "Productos más vendidos",
                 style = MaterialTheme.typography.titleLarge
             )
         }
 
         if (state.topProductos.isEmpty()) {
-
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -164,19 +158,16 @@ fun ReportesScreen(
                     shape = MaterialTheme.shapes.large
                 ) {
                     Text(
-                        "Aún no hay ventas registradas.",
+                        text = "Aún no hay ventas registradas.",
                         modifier = Modifier.padding(20.dp)
                     )
                 }
             }
-
         } else {
-
             items(
                 items = state.topProductos,
                 key = { top -> "producto_${top.productoId}" }
             ) { top ->
-
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -186,23 +177,22 @@ fun ReportesScreen(
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-
                         Column(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                top.nombre,
+                                text = top.nombre,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
                             Text(
-                                "${top.unidadesVendidas} unidades",
+                                text = "${top.unidadesVendidas} unidades",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
                         Text(
-                            money(
+                            text = money(
                                 runCatching {
                                     BigDecimal.valueOf(top.totalVendido)
                                 }.getOrDefault(BigDecimal.ZERO)
@@ -215,7 +205,7 @@ fun ReportesScreen(
 
         item {
             Text(
-                "Ventas recientes",
+                text = "Ventas recientes",
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -224,7 +214,6 @@ fun ReportesScreen(
             items = state.ventas.take(10),
             key = { sale -> "venta_${sale.id}" }
         ) { sale ->
-
             Card(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -234,18 +223,19 @@ fun ReportesScreen(
                         .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-
-                    Column {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text("Venta #${sale.id}")
 
                         Text(
-                            sale.createdAt.toString(),
+                            text = sale.createdAt.toString(),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
                     Text(
-                        runCatching {
+                        text = runCatching {
                             money(sale.total)
                         }.getOrDefault("$0.00"),
                         style = MaterialTheme.typography.titleMedium
@@ -256,7 +246,6 @@ fun ReportesScreen(
     }
 
     state.message?.let { message ->
-
         AlertDialog(
             onDismissRequest = viewModel::clearMessage,
             title = {
@@ -275,3 +264,65 @@ fun ReportesScreen(
         )
     }
 }
+
+@Composable
+private fun MetricCard(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(Modifier.padding(4.dp))
+
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun IndicatorRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label)
+        Text(value)
+    }
+}
+
+private fun money(value: BigDecimal): String =
+    NumberFormat
+        .getCurrencyInstance(Locale("es", "MX"))
+        .format(value)
