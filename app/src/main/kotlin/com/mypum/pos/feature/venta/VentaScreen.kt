@@ -68,12 +68,13 @@ fun VentaScreen(viewModel: VentaViewModel = hiltViewModel()) {
                 Spacer(Modifier.padding(6.dp))
                 Text("Venta", style = MaterialTheme.typography.headlineMedium)
             }
+            val turnoActual = state.turno
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (state.turno == null) "Sin turno abierto" else "Turno #${state.turno.id}", color = if (state.turno == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                    Text(if (turnoActual == null) "Sin turno abierto" else "Turno #${turnoActual.id}", color = if (turnoActual == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                     Text("${state.carrito.size} artículos · ${money(state.total)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (state.turno == null) TextButton(onClick = { showOpenTurno = true }) { Text("Abrir turno") }
+                if (turnoActual == null) TextButton(onClick = { showOpenTurno = true }) { Text("Abrir turno") }
             }
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
@@ -160,7 +161,7 @@ private fun OpenTurnoDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) 
 
 @Composable
 private fun CartRow(item: ItemCarrito, viewModel: VentaViewModel) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(item.producto.nombre)
             Text("${item.cantidad.stripTrailingZeros().toPlainString()} × ${money(item.producto.precio)}", style = MaterialTheme.typography.bodySmall)
