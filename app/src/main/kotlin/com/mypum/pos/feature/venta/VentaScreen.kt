@@ -399,7 +399,7 @@ fun VentaScreen(
 
     if (showScanner) {
         BarcodeScannerDialog(
-            onCode = { code ->
+            onBarcodeDetected = { code ->
                 viewModel.addByCode(code); showScanner = false
             },
             onDismiss = {

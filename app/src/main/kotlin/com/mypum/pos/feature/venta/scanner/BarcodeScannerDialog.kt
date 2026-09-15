@@ -9,9 +9,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -27,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -41,17 +40,17 @@ fun BarcodeScannerDialog(
     onBarcodeDetected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
-                androidx.compose.ui.platform.LocalContext.current,
+                context,
                 Manifest.permission.CAMERA
             ) == PackageManager.PERMISSION_GRANTED
         )
     }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
@@ -79,7 +78,10 @@ fun BarcodeScannerDialog(
                 )
             } else {
                 Column {
-                    Text("Se necesita permiso de cámara para escanear códigos de barras.")
+                    Text(
+                        "Se necesita permiso de cámara para escanear códigos de barras."
+                    )
+
                     Button(
                         onClick = {
                             permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -106,12 +108,19 @@ private fun ScannerCamera(
     lifecycleOwner: LifecycleOwner,
     onBarcodeDetected: (String) -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val previewView = remember { PreviewView(context) }
-    val executor = remember { Executors.newSingleThreadExecutor() }
+    val context = LocalContext.current
+
+    val previewView = remember {
+        PreviewView(context)
+    }
+
+    val executor = remember {
+        Executors.newSingleThreadExecutor()
+    }
 
     DisposableEffect(lifecycleOwner) {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        val cameraProviderFuture =
+            ProcessCameraProvider.getInstance(context)
 
         cameraProviderFuture.addListener(
             {
@@ -120,7 +129,9 @@ private fun ScannerCamera(
                 val preview = Preview.Builder()
                     .build()
                     .also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
+                        it.setSurfaceProvider(
+                            previewView.surfaceProvider
+                        )
                     }
 
                 val scannerOptions =
@@ -138,13 +149,15 @@ private fun ScannerCamera(
                         )
                         .build()
 
-                val scanner = BarcodeScanning.getClient(scannerOptions)
+                val scanner =
+                    BarcodeScanning.getClient(scannerOptions)
 
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(
-                        ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                    )
-                    .build()
+                val analysis =
+                    ImageAnalysis.Builder()
+                        .setBackpressureStrategy(
+                            ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                        )
+                        .build()
 
                 analysis.setAnalyzer(executor) { imageProxy ->
                     val mediaImage = imageProxy.image
@@ -185,31 +198,27 @@ private fun ScannerCamera(
                         analysis
                     )
                 } catch (_: Exception) {
-                    // La cámara puede fallar si el ciclo de vida cambia
-                    // mientras el diálogo se está cerrando.
+                    // La pantalla puede cerrarse mientras la cámara se está vinculando.
                 }
             },
             ContextCompat.getMainExecutor(context)
         )
 
         onDispose {
-            executor.shutdown()
             runCatching {
-                ProcessCameraProvider.getInstance(context).get().unbindAll()
+                cameraProviderFuture.get().unbindAll()
             }
+
+            executor.shutdown()
         }
     }
 
-    Box(
+    AndroidView(
+        factory = {
+            previewView
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
-    ) {
-        AndroidView(
-            factory = { previewView },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp)
-        )
-    }
+    )
 }
