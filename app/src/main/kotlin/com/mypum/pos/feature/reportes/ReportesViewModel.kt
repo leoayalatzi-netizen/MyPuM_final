@@ -21,18 +21,15 @@ class ReportesViewModel @Inject constructor(
     private val reporteRepository: ReporteRepository
 ) : ViewModel() {
 
-    private val _state =
-        MutableStateFlow(ReportesContractState())
+    private val _state = MutableStateFlow(ReportesContractState())
 
-    val state: StateFlow<ReportesContractState> =
-        _state.asStateFlow()
+    val state: StateFlow<ReportesContractState> = _state.asStateFlow()
 
     init {
         cargar()
     }
 
     private fun cargar() {
-
         viewModelScope.launch {
 
             combine(
@@ -42,38 +39,34 @@ class ReportesViewModel @Inject constructor(
                 ventas to productos
             }
                 .catch { error ->
-
-                    _state.value =
-                        _state.value.copy(
-                            loading = false,
-                            message =
-                                error.message
-                                    ?: "No se pudieron cargar los reportes"
-                        )
+                    _state.value = ReportesContractState(
+                        loading = false,
+                        message = error.message ?: "No se pudieron cargar los reportes"
+                    )
                 }
-                .collect { (ventas, productos) ->
+                .collect { resultado ->
 
-                    val top =
-                        try {
-                            reporteRepository.topProductos()
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
+                    val ventas = resultado.first
+                    val productos = resultado.second
 
-                    _state.value =
-                        ReportesContractState(
-                            loading = false,
-                            ventas = ventas,
-                            productos = productos,
-                            topProductos = top,
-                            message = null
-                        )
+                    val top = runCatching {
+                        reporteRepository.topProductos()
+                    }.getOrElse {
+                        emptyList()
+                    }
+
+                    _state.value = ReportesContractState(
+                        loading = false,
+                        ventas = ventas,
+                        productos = productos,
+                        topProductos = top,
+                        message = null
+                    )
                 }
         }
     }
 
     fun clearMessage() {
-        _state.value =
-            _state.value.copy(message = null)
+        _state.value = _state.value.copy(message = null)
     }
 }

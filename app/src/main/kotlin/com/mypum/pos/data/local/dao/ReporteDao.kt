@@ -6,11 +6,13 @@ import com.mypum.pos.domain.model.ProductoTop
 
 @Dao
 interface ReporteDao {
+
     @Query("""
-        SELECT p.id AS productoId,
-               p.nombre AS nombre,
-               CAST(COALESCE(SUM(d.cantidad), 0) AS REAL) AS unidadesVendidas,
-               CAST(COALESCE(SUM(d.subtotal), 0) AS REAL) AS totalVendido
+        SELECT
+            p.id AS productoId,
+            p.nombre AS nombre,
+            SUM(CAST(d.cantidad AS REAL)) AS unidadesVendidas,
+            SUM(CAST(d.subtotal AS REAL)) AS totalVendido
         FROM detalle_venta d
         INNER JOIN productos p ON p.id = d.productoId
         INNER JOIN ventas v ON v.id = d.ventaId
