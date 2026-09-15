@@ -278,7 +278,7 @@ fun ReportesScreen(
                         }
 
                         Text(
-                            text = money(top.totalVendido),
+                            text = money(java.math.BigDecimal.valueOf(top.totalVendido)),
                             style =
                                 MaterialTheme.typography.titleMedium
                         )
