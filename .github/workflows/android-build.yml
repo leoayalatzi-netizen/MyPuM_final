@@ -74,9 +74,17 @@ jobs:
             echo ""
             echo "================ ERRORES KOTLIN ================="
 
-            grep -nE \
-              '(^e: |error:|Unresolved reference:|Type mismatch:|Cannot access |Expecting |Overload resolution ambiguity|This declaration is not allowed|None of the following functions)' \
-              build.log || true
+            grep -nE "\.kt:[0-9]+:[0-9]+" build.log || true
+
+            echo ""
+            echo "================ MENSAJES DEL COMPILADOR ================="
+
+            grep -nE "(^e:|^w:|error:|warning:|Expecting |Unexpected |Type expected|Property getter|Unresolved reference|Type mismatch|Cannot access|Overload resolution ambiguity)" build.log || true
+
+            echo ""
+            echo "================ CONTEXTO DE ERRORES ================="
+
+            grep -nE -B 2 -A 4 "\.kt:[0-9]+:[0-9]+" build.log || true
 
             echo ""
             echo "================ ARCHIVOS .KT CON ERROR ================="
