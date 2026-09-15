@@ -133,6 +133,7 @@ jobs:
 
           exit "$STATUS"
 
+
       - name: Upload compilation log
         if: always()
         uses: actions/upload-artifact@v4
@@ -140,3 +141,11 @@ jobs:
           name: android-build-log
           path: build.log
           if-no-files-found: ignore
+
+      - name: Upload APK Debug
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPuM-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
