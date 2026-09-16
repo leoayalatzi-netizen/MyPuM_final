@@ -5,24 +5,24 @@ import com.mypum.pos.data.mapper.toDomain
 import com.mypum.pos.data.mapper.toEntity
 import com.mypum.pos.domain.model.Producto
 import com.mypum.pos.domain.repository.ProductoRepository
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ProductoRepositoryImpl(
     private val dao: ProductoDao
 ) : ProductoRepository {
-    override fun observeAll(): Flow<List<Producto>> =
-        dao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
-    override suspend fun buscarPorCodigo(codigo: String): Producto? =
+    override fun observeAll() =
+        dao.observeAll().map { lista ->
+            lista.map { it.toDomain() }
+        }
+
+    override suspend fun buscarPorCodigo(codigo: String) =
         dao.byCodigo(codigo)?.toDomain()
 
-    override suspend fun guardar(producto: Producto): Long {
-        return if (producto.id == 0L) {
-            dao.insert(producto.toEntity())
-        } else {
-            dao.update(producto.toEntity())
-            producto.id
-        }
+    override suspend fun guardar(producto: Producto) =
+        dao.insert(producto.toEntity())
+
+    override suspend fun eliminar(producto: Producto) {
+        dao.delete(producto.toEntity())
     }
 }
