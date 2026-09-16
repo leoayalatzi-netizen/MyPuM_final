@@ -1,28 +1,27 @@
 package com.mypum.pos.designsystem.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+
+private val ColorTealDark = MyPuMTeal
+private val ColorOrangeDark = Color(0xFFB45309)
 
 private val MyPuMLightColorScheme = lightColorScheme(
-
     primary = MyPuMBlue,
     onPrimary = MyPuMWhite,
-
     primaryContainer = MyPuMBlueContainer,
     onPrimaryContainer = MyPuMBlueDark,
 
     secondary = MyPuMTeal,
     onSecondary = MyPuMWhite,
-
     secondaryContainer = MyPuMTealSoft,
     onSecondaryContainer = MyPuMDark,
 
     tertiary = MyPuMOrange,
     onTertiary = MyPuMWhite,
-
     tertiaryContainer = MyPuMOrangeSoft,
     onTertiaryContainer = MyPuMDark,
 
@@ -31,7 +30,6 @@ private val MyPuMLightColorScheme = lightColorScheme(
 
     surface = MyPuMSurface,
     onSurface = MyPuMDark,
-
     surfaceVariant = MyPuMSurfaceVariant,
     onSurfaceVariant = MyPuMTextSecondary,
 
@@ -40,28 +38,23 @@ private val MyPuMLightColorScheme = lightColorScheme(
 
     error = MyPuMRed,
     onError = MyPuMWhite,
-
     errorContainer = MyPuMRedSoft,
     onErrorContainer = MyPuMRed
 )
 
 private val MyPuMDarkColorScheme = darkColorScheme(
-
     primary = MyPuMBlueLight,
     onPrimary = MyPuMDarkBackground,
-
     primaryContainer = MyPuMBlueDark,
     onPrimaryContainer = MyPuMWhite,
 
     secondary = ColorTealDark,
     onSecondary = MyPuMWhite,
-
     secondaryContainer = MyPuMTeal,
     onSecondaryContainer = MyPuMWhite,
 
     tertiary = MyPuMOrange,
     onTertiary = MyPuMDarkBackground,
-
     tertiaryContainer = ColorOrangeDark,
     onTertiaryContainer = MyPuMWhite,
 
@@ -79,13 +72,9 @@ private val MyPuMDarkColorScheme = darkColorScheme(
 
     error = MyPuMRed,
     onError = MyPuMWhite,
-
     errorContainer = MyPuMRedSoft,
     onErrorContainer = MyPuMWhite
 )
-
-private val ColorTealDark = MyPuMTeal
-private val ColorOrangeDark = Color(0xFFB45309)
 
 @Composable
 fun MyPuMTheme(
