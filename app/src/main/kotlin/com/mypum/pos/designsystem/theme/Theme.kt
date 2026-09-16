@@ -1,39 +1,103 @@
 package com.mypum.pos.designsystem.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF1769FF),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE7FF),
-    onPrimaryContainer = Color(0xFF001A41),
-    secondary = Color(0xFF465D91),
-    tertiary = Color(0xFF006A67),
-    background = Color(0xFFF9F9FD),
-    surface = Color(0xFFF9F9FD)
+private val MyPuMLightColorScheme = lightColorScheme(
+
+    primary = MyPuMBlue,
+    onPrimary = MyPuMWhite,
+
+    primaryContainer = MyPuMBlueContainer,
+    onPrimaryContainer = MyPuMBlueDark,
+
+    secondary = MyPuMTeal,
+    onSecondary = MyPuMWhite,
+
+    secondaryContainer = MyPuMTealSoft,
+    onSecondaryContainer = MyPuMDark,
+
+    tertiary = MyPuMOrange,
+    onTertiary = MyPuMWhite,
+
+    tertiaryContainer = MyPuMOrangeSoft,
+    onTertiaryContainer = MyPuMDark,
+
+    background = MyPuMBackground,
+    onBackground = MyPuMDark,
+
+    surface = MyPuMSurface,
+    onSurface = MyPuMDark,
+
+    surfaceVariant = MyPuMSurfaceVariant,
+    onSurfaceVariant = MyPuMTextSecondary,
+
+    outline = MyPuMOutline,
+    outlineVariant = MyPuMOutlineVariant,
+
+    error = MyPuMRed,
+    onError = MyPuMWhite,
+
+    errorContainer = MyPuMRedSoft,
+    onErrorContainer = MyPuMRed
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFADC6FF),
-    onPrimary = Color(0xFF002F68),
-    primaryContainer = Color(0xFF004594),
-    onPrimaryContainer = Color(0xFFDCE7FF),
-    secondary = Color(0xFFB8C6EA),
-    tertiary = Color(0xFF7DD8D4)
+private val MyPuMDarkColorScheme = darkColorScheme(
+
+    primary = MyPuMBlueLight,
+    onPrimary = MyPuMDarkBackground,
+
+    primaryContainer = MyPuMBlueDark,
+    onPrimaryContainer = MyPuMWhite,
+
+    secondary = ColorTealDark,
+    onSecondary = MyPuMWhite,
+
+    secondaryContainer = MyPuMTeal,
+    onSecondaryContainer = MyPuMWhite,
+
+    tertiary = MyPuMOrange,
+    onTertiary = MyPuMDarkBackground,
+
+    tertiaryContainer = ColorOrangeDark,
+    onTertiaryContainer = MyPuMWhite,
+
+    background = MyPuMDarkBackground,
+    onBackground = MyPuMTextDark,
+
+    surface = MyPuMDarkSurface,
+    onSurface = MyPuMTextDark,
+
+    surfaceVariant = MyPuMDarkSurfaceVariant,
+    onSurfaceVariant = MyPuMTextSecondaryDark,
+
+    outline = MyPuMOutlineDark,
+    outlineVariant = MyPuMOutlineVariantDark,
+
+    error = MyPuMRed,
+    onError = MyPuMWhite,
+
+    errorContainer = MyPuMRedSoft,
+    onErrorContainer = MyPuMWhite
 )
+
+private val ColorTealDark = MyPuMTeal
+private val ColorOrangeDark = Color(0xFFB45309)
 
 @Composable
 fun MyPuMTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = if (darkTheme) {
+            MyPuMDarkColorScheme
+        } else {
+            MyPuMLightColorScheme
+        },
         typography = MyPuMTypography,
         shapes = MyPuMShapes,
         content = content
