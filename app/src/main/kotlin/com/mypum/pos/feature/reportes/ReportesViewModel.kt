@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -38,11 +40,38 @@ class ReportesViewModel @Inject constructor(
             combine(
                 ventaRepository.observeAll(),
                 productoRepository.observeAll(),
-                turnoRepository.observeAll(),
-                egresoRepository.observeAll()
-            ) { ventas, productos, turnos, egresos ->
-                QuadData(ventas, productos, turnos, egresos)
+                turnoRepository.observeActivo()
+            ) { ventas, productos, turnoActivo ->
+                Triple(ventas, productos, turnoActivo)
             }
+                .flatMapLatest { data ->
+
+                    val turno = data.third
+
+                    if (turno == null) {
+                        flowOf(
+                            ReportesData(
+                                ventas = data.first,
+                                productos = data.second,
+                                turno = null,
+                                egresos = emptyList()
+                            )
+                        )
+                    } else {
+                        egresoRepository
+                            .byTurno(turno.id)
+                            .combine(
+                                flowOf(data.first)
+                            ) { egresos, ventas ->
+                                ReportesData(
+                                    ventas = ventas,
+                                    productos = data.second,
+                                    turno = turno,
+                                    egresos = egresos
+                                )
+                            }
+                    }
+                }
                 .catch { error ->
                     _state.value = _state.value.copy(
                         loading = false,
@@ -52,18 +81,20 @@ class ReportesViewModel @Inject constructor(
                 }
                 .collect { data ->
 
-                    val grupos = data.turnos
-                        .map { turno ->
+                    val grupos = data.turno?.let { turno ->
+
+                        listOf(
                             ReporteTurno(
                                 turno = turno,
                                 ventas = data.ventas.filter {
                                     it.turnoId == turno.id
                                 },
-                                egresos = data.egresos.filter {
-                                    it.turnoId == turno.id
-                                }
+                                egresos = data.egresos
                             )
-                        }
+                        )
+                    } ?: emptyList()
+
+                    val dias = grupos
                         .groupBy { it.fecha }
                         .map { (fecha, turnos) ->
                             ReporteDia(
@@ -88,17 +119,15 @@ class ReportesViewModel @Inject constructor(
                         ventas = data.ventas,
                         productos = data.productos,
                         topProductos = top,
-                        turnos = data.turnos,
+                        turnos = grupos.map { it.turno },
                         egresos = data.egresos,
-                        dias = grupos,
+                        dias = dias,
                         turnoSeleccionadoId =
                             actual.turnoSeleccionadoId
                                 ?.takeIf { id ->
-                                    data.turnos.any { it.id == id }
+                                    grupos.any { it.turno.id == id }
                                 }
                                 ?: grupos.firstOrNull()
-                                    ?.turnos
-                                    ?.firstOrNull()
                                     ?.turno
                                     ?.id,
                         message = null
@@ -120,13 +149,15 @@ class ReportesViewModel @Inject constructor(
     }
 
     fun clearMessage() {
-        _state.value = _state.value.copy(message = null)
+        _state.value = _state.value.copy(
+            message = null
+        )
     }
 
-    private data class QuadData(
+    private data class ReportesData(
         val ventas: List<com.mypum.pos.domain.model.Venta>,
         val productos: List<com.mypum.pos.domain.model.Producto>,
-        val turnos: List<com.mypum.pos.domain.model.Turno>,
+        val turno: com.mypum.pos.domain.model.Turno?,
         val egresos: List<com.mypum.pos.domain.model.Egreso>
     )
 }
