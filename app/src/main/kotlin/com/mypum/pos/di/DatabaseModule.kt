@@ -2,8 +2,19 @@ package com.mypum.pos.di
 
 import android.content.Context
 import androidx.room.Room
+import com.mypum.pos.data.local.DatabaseSeeder
 import com.mypum.pos.data.local.PosDatabase
 import com.mypum.pos.data.local.migration.MIGRATION_1_2
+import com.mypum.pos.data.local.dao.DetalleVentaDao
+import com.mypum.pos.data.local.dao.EgresoDao
+import com.mypum.pos.data.local.dao.HistorialPrecioDao
+import com.mypum.pos.data.local.dao.ProductoDao
+import com.mypum.pos.data.local.dao.ReporteDao
+import com.mypum.pos.data.local.dao.ServicioDao
+import com.mypum.pos.data.local.dao.SyncQueueDao
+import com.mypum.pos.data.local.dao.TurnoDao
+import com.mypum.pos.data.local.dao.UsuarioDao
+import com.mypum.pos.data.local.dao.VentaDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,40 +29,58 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun db(
-        @ApplicationContext c: Context
+        @ApplicationContext context: Context
     ): PosDatabase =
         Room.databaseBuilder(
-            c,
+            context,
             PosDatabase::class.java,
             "mypum.db"
-        )
-            .addMigrations(MIGRATION_1_2)
-            .build()
+        ).addMigrations(MIGRATION_1_2).build()
 
     @Provides
-    fun product(d: PosDatabase) = d.productoDao()
+    fun product(d: PosDatabase): ProductoDao =
+        d.productoDao()
 
     @Provides
-    fun sale(d: PosDatabase) = d.ventaDao()
+    fun sale(d: PosDatabase): VentaDao =
+        d.ventaDao()
 
     @Provides
-    fun egreso(d: PosDatabase) = d.egresoDao()
+    fun detalleVenta(d: PosDatabase): DetalleVentaDao =
+        d.detalleVentaDao()
 
     @Provides
-    fun turno(d: PosDatabase) = d.turnoDao()
+    fun egreso(d: PosDatabase): EgresoDao =
+        d.egresoDao()
 
     @Provides
-    fun usuario(d: PosDatabase) = d.usuarioDao()
+    fun turno(d: PosDatabase): TurnoDao =
+        d.turnoDao()
 
     @Provides
-    fun servicio(d: PosDatabase) = d.servicioDao()
+    fun usuario(d: PosDatabase): UsuarioDao =
+        d.usuarioDao()
 
     @Provides
-    fun precio(d: PosDatabase) = d.historialPrecioDao()
+    fun servicio(d: PosDatabase): ServicioDao =
+        d.servicioDao()
 
     @Provides
-    fun sync(d: PosDatabase) = d.syncQueueDao()
+    fun precio(d: PosDatabase): HistorialPrecioDao =
+        d.historialPrecioDao()
 
     @Provides
-    fun reporte(d: PosDatabase) = d.reporteDao()
+    fun sync(d: PosDatabase): SyncQueueDao =
+        d.syncQueueDao()
+
+    @Provides
+    fun reporte(d: PosDatabase): ReporteDao =
+        d.reporteDao()
+
+    @Provides
+    fun seeder(
+        d: ProductoDao,
+        u: UsuarioDao
+    ): DatabaseSeeder =
+        DatabaseSeeder(d, u)
 }

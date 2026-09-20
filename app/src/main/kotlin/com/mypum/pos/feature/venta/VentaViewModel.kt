@@ -2,27 +2,24 @@ package com.mypum.pos.feature.venta
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mypum.pos.data.datastore.SessionDataStore
 import com.mypum.pos.domain.model.ItemCarrito
 import com.mypum.pos.domain.model.Turno
 import com.mypum.pos.domain.model.Venta
-import com.mypum.pos.domain.model.enums.MetodoPago
-import com.mypum.pos.domain.repository.EgresoRepository
+import com.mypum.pos.domain.model.enum.MetodoPago
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.TurnoRepository
 import com.mypum.pos.domain.repository.VentaRepository
-import com.mypum.pos.domain.usecase.turno.CalcularCierreUseCase
+import com.mypum.pos.domain.usecase.turno.AbrirTurnoUseCase
+import com.mypum.pos.domain.usecase.turno.CerrarTurnoUseCase
+import com.mypum.pos.domain.usecase.venta.RegistrarVentaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -30,124 +27,202 @@ class VentaViewModel @Inject constructor(
     private val productoRepository: ProductoRepository,
     private val ventaRepository: VentaRepository,
     private val turnoRepository: TurnoRepository,
-    private val egresoRepository: EgresoRepository,
-    private val calcularCierreUseCase: CalcularCierreUseCase,
-    private val sessionDataStore: SessionDataStore
+    private val registrarVentaUseCase: RegistrarVentaUseCase,
+    private val abrirTurnoUseCase: AbrirTurnoUseCase,
+    private val cerrarTurnoUseCase: CerrarTurnoUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(VentaContractState())
     val state: StateFlow<VentaContractState> = _state.asStateFlow()
 
+    private var productosJob: Job? = null
+    private var turnoJob: Job? = null
+
     init {
-        viewModelScope.launch {
-            combine(
-                productoRepository.observeAll(),
-                turnoRepository.observeActivo()
-            ) { products, turno -> products to turno }
-                .catch { error ->
-                    _state.value = _state.value.copy(
-                        loading = false,
-                        message = error.message ?: "No se pudo cargar la venta"
-                    )
-                }
-                .collect { (products, turno) ->
-                    _state.value = _state.value.copy(
-                        loading = false,
-                        productos = products,
-                        turno = turno
-                    )
-                }
+        observarProductos()
+        observarTurno()
+    }
+
+    private fun observarProductos() {
+        productosJob?.cancel()
+
+        productosJob = viewModelScope.launch {
+            productoRepository.observeAll().collect { productos ->
+                _state.value = _state.value.copy(
+                    productos = productos
+                )
+            }
         }
     }
 
-    fun search(query: String) {
-        _state.value = _state.value.copy(query = query)
+    private fun observarTurno() {
+        turnoJob?.cancel()
+
+        turnoJob = viewModelScope.launch {
+            turnoRepository.observeActivo().collect { turno ->
+                _state.value = _state.value.copy(
+                    turno = turno
+                )
+            }
+        }
     }
 
-    fun clearMessage() {
-        _state.value = _state.value.copy(message = null)
+    fun search(value: String) {
+        _state.value = _state.value.copy(
+            query = value
+        )
     }
 
     fun add(productId: Long) {
-        val product = _state.value.productos.firstOrNull { it.id == productId }
-            ?: return
+        val current = _state.value
 
-        val existing = _state.value.carrito.firstOrNull {
-            it.producto.id == productId
-        }
-
-        val quantity =
-            existing?.cantidad?.add(BigDecimal.ONE) ?: BigDecimal.ONE
-
-        if (quantity > product.stock) {
-            _state.value = _state.value.copy(
-                message = "Stock insuficiente para ${product.nombre}"
-            )
+        if (current.turno == null) {
+            showMessage("Primero debes abrir un turno.")
             return
         }
 
-        val newItem = ItemCarrito(product, quantity)
+        val product = current.productos.firstOrNull {
+            it.id == productId
+        } ?: return
 
-        _state.value = _state.value.copy(
-            carrito = _state.value.carrito
-                .filterNot { it.producto.id == productId } + newItem,
-            message = null
-        )
+        if (product.stock <= BigDecimal.ZERO) {
+            showMessage("No hay stock disponible de ${product.nombre}.")
+            return
+        }
+
+        val existing = current.carrito.firstOrNull {
+            it.producto.id == productId
+        }
+
+        val newCart =
+            if (existing == null) {
+                current.carrito + ItemCarrito(
+                    producto = product,
+                    cantidad = BigDecimal.ONE
+                )
+            } else {
+
+                val nuevaCantidad =
+                    existing.cantidad.add(BigDecimal.ONE)
+
+                if (nuevaCantidad > product.stock) {
+                    showMessage("Stock insuficiente de ${product.nombre}.")
+                    return
+                }
+
+                current.carrito.map {
+                    if (it.producto.id == productId) {
+                        it.copy(
+                            cantidad = nuevaCantidad,
+                            subtotal = product.precio.multiply(nuevaCantidad)
+                        )
+                    } else {
+                        it
+                    }
+                }
+            }
+
+        actualizarCarrito(newCart)
     }
 
     fun decrease(productId: Long) {
-        val current = _state.value.carrito.firstOrNull {
+
+        val current = _state.value
+
+        val item = current.carrito.firstOrNull {
             it.producto.id == productId
         } ?: return
 
-        val newQuantity = current.cantidad.subtract(BigDecimal.ONE)
+        val nuevaCantidad =
+            item.cantidad.subtract(BigDecimal.ONE)
 
-        _state.value = _state.value.copy(
-            carrito =
-                if (newQuantity <= BigDecimal.ZERO) {
-                    _state.value.carrito
-                        .filterNot { it.producto.id == productId }
-                } else {
-                    _state.value.carrito.map {
-                        if (it.producto.id == productId) {
-                            current.copy(
-                                cantidad = newQuantity,
-                                subtotal = current.producto.precio
-                                    .multiply(newQuantity)
-                            )
-                        } else {
-                            it
-                        }
+        val newCart =
+            if (nuevaCantidad <= BigDecimal.ZERO) {
+                current.carrito.filter {
+                    it.producto.id != productId
+                }
+            } else {
+                current.carrito.map {
+                    if (it.producto.id == productId) {
+                        it.copy(
+                            cantidad = nuevaCantidad,
+                            subtotal = item.producto.precio.multiply(nuevaCantidad)
+                        )
+                    } else {
+                        it
                     }
                 }
-        )
+            }
+
+        actualizarCarrito(newCart)
     }
 
     fun remove(productId: Long) {
+
+        val newCart = _state.value.carrito.filter {
+            it.producto.id != productId
+        }
+
+        actualizarCarrito(newCart)
+    }
+
+    private fun actualizarCarrito(
+        carrito: List<ItemCarrito>
+    ) {
+
+        val total =
+            carrito.fold(BigDecimal.ZERO) { acumulado, item ->
+                acumulado.add(item.subtotal)
+            }
+
         _state.value = _state.value.copy(
-            carrito = _state.value.carrito
-                .filterNot { it.producto.id == productId }
+            carrito = carrito,
+            total = total
         )
     }
 
-    fun requestCheckout() {
-        when {
-            _state.value.carrito.isEmpty() ->
-                _state.value = _state.value.copy(
-                    message = "Agrega al menos un producto"
-                )
+    fun addByCode(code: String) {
 
-            _state.value.turno == null ->
-                _state.value = _state.value.copy(
-                    message = "Primero abre un turno"
-                )
+        val normalized = code.trim()
 
-            else ->
-                _state.value = _state.value.copy(
-                    showCheckout = true,
-                    message = null
-                )
+        if (normalized.isEmpty()) return
+
+        viewModelScope.launch {
+
+            val producto =
+                productoRepository.buscarPorCodigo(normalized)
+
+            if (producto == null) {
+                showMessage("No se encontró el código $normalized.")
+                return@launch
+            }
+
+            add(producto.id)
         }
+    }
+
+    fun requestCheckout() {
+
+        val current = _state.value
+
+        if (current.turno == null) {
+            showMessage("Primero debes abrir un turno.")
+            return
+        }
+
+        if (current.carrito.isEmpty()) {
+            showMessage("Agrega al menos un producto.")
+            return
+        }
+
+        if (current.total <= BigDecimal.ZERO) {
+            showMessage("El total de la venta no es válido.")
+            return
+        }
+
+        _state.value = current.copy(
+            showCheckout = true
+        )
     }
 
     fun closeCheckout() {
@@ -156,214 +231,242 @@ class VentaViewModel @Inject constructor(
         )
     }
 
-    fun openTurno(fondo: String) {
-        val amount = fondo.toBigDecimalOrNull()
-
-        if (amount == null || amount < BigDecimal.ZERO) {
-            _state.value = _state.value.copy(
-                message = "Fondo inicial inválido"
-            )
-            return
-        }
-
-        viewModelScope.launch {
-            val userId =
-                sessionDataStore.activeUserId.firstOrNull() ?: 1L
-
-            runCatching {
-                turnoRepository.abrir(
-                    Turno(
-                        usuarioId = userId,
-                        fondoInicial = amount
-                    )
-                )
-            }.onFailure { error ->
-                _state.value = _state.value.copy(
-                    message = error.message
-                        ?: "No se pudo abrir el turno"
-                )
-            }
-        }
-    }
-
     fun confirmPayment(
         metodoPago: MetodoPago,
-        recibido: String
+        recibidoTexto: String
     ) {
+
         val current = _state.value
 
-        val turno = current.turno ?: run {
-            _state.value = current.copy(
-                showCheckout = false,
-                message = "Primero abre un turno"
-            )
+        val turno = current.turno
+        if (turno == null) {
+            showMessage("No hay un turno abierto.")
             return
         }
 
-        val received =
-            recibido.toBigDecimalOrNull() ?: BigDecimal.ZERO
-
-        if (
-            metodoPago == MetodoPago.EFECTIVO &&
-            received < current.total
-        ) {
-            _state.value = current.copy(
-                message = "El efectivo recibido es menor al total"
-            )
+        if (current.carrito.isEmpty()) {
+            showMessage("El carrito está vacío.")
             return
+        }
+
+        val recibido =
+            recibidoTexto
+                .trim()
+                .replace(",", ".")
+                .toBigDecimalOrNull()
+
+        if (metodoPago == MetodoPago.EFECTIVO) {
+
+            if (recibido == null) {
+                showMessage("Ingresa el efectivo recibido.")
+                return
+            }
+
+            if (recibido < current.total) {
+                showMessage(
+                    "El efectivo recibido es menor al total."
+                )
+                return
+            }
         }
 
         viewModelScope.launch {
+
             _state.value = _state.value.copy(
                 loading = true,
                 message = null
             )
 
-            runCatching {
-                ventaRepository.registrar(
-                    Venta(
-                        turnoId = turno.id,
-                        total = current.total,
-                        metodoPago = metodoPago,
-                        items = current.carrito
-                    )
+            try {
+
+                val venta = Venta(
+                    id = 0L,
+                    turnoId = turno.id,
+                    total = current.total,
+                    metodoPago = metodoPago,
+                    items = current.carrito,
+                    cancelada = false,
+                    createdAt = Instant.now()
                 )
-            }.onSuccess { id ->
+
+                registrarVentaUseCase(venta)
+
+                val cambio =
+                    if (metodoPago == MetodoPago.EFECTIVO) {
+                        recibido!!.subtract(current.total)
+                    } else {
+                        BigDecimal.ZERO
+                    }
+
                 _state.value = _state.value.copy(
                     loading = false,
                     carrito = emptyList(),
+                    total = BigDecimal.ZERO,
                     showCheckout = false,
-                    lastSaleId = id,
-                    message = "Venta #$id registrada correctamente"
+                    message =
+                        if (metodoPago == MetodoPago.EFECTIVO) {
+                            "Venta registrada.\nCambio: $ ${
+                                cambio.setScale(
+                                    2,
+                                    java.math.RoundingMode.HALF_UP
+                                )
+                            }"
+                        } else {
+                            "Venta registrada correctamente."
+                        }
                 )
-            }.onFailure { error ->
+
+            } catch (e: Exception) {
+
                 _state.value = _state.value.copy(
                     loading = false,
-                    message = error.message
-                        ?: "No se pudo registrar la venta"
+                    message =
+                        e.message
+                            ?: "No se pudo registrar la venta."
                 )
             }
         }
     }
 
-    fun addByCode(code: String) {
+    fun openTurno(fondoTexto: String) {
+
+        val fondo =
+            fondoTexto
+                .trim()
+                .replace(",", ".")
+                .toBigDecimalOrNull()
+
+        if (fondo == null || fondo < BigDecimal.ZERO) {
+            showMessage("El fondo inicial no es válido.")
+            return
+        }
+
+        if (_state.value.turno != null) {
+            showMessage("Ya existe un turno abierto.")
+            return
+        }
+
         viewModelScope.launch {
-            val product =
-                productoRepository.buscarPorCodigo(code.trim())
-
-            if (product == null) {
-                _state.value = _state.value.copy(
-                    message =
-                        "No encontré un producto con código $code"
-                )
-                return@launch
-            }
-
-            val current =
-                _state.value.carrito.firstOrNull {
-                    it.producto.id == product.id
-                }
-
-            val quantity =
-                current?.cantidad?.add(BigDecimal.ONE)
-                    ?: BigDecimal.ONE
-
-            if (quantity > product.stock) {
-                _state.value = _state.value.copy(
-                    message =
-                        "Stock insuficiente: ${product.nombre}"
-                )
-                return@launch
-            }
-
-            val item = ItemCarrito(product, quantity)
 
             _state.value = _state.value.copy(
-                carrito = _state.value.carrito
-                    .filterNot { it.producto.id == product.id } + item,
-                message = "${product.nombre} agregado"
+                loading = true
             )
+
+            try {
+
+                /*
+                 * MyPuM funciona sin pantalla de usuario/PIN.
+                 * El usuario local inicial creado por DatabaseSeeder
+                 * utiliza normalmente el ID 1.
+                 */
+                abrirTurnoUseCase(
+                    Turno(
+                        id = 0L,
+                        usuarioId = 1L,
+                        fondoInicial = fondo,
+                        abierto = true,
+                        openedAt = Instant.now(),
+                        closedAt = null
+                    )
+                )
+
+                _state.value = _state.value.copy(
+                    loading = false,
+                    message = "Turno abierto correctamente."
+                )
+
+            } catch (e: Exception) {
+
+                _state.value = _state.value.copy(
+                    loading = false,
+                    message =
+                        e.message
+                            ?: "No se pudo abrir el turno."
+                )
+            }
         }
     }
 
-    fun closeTurno(efectivoContado: String) {
-        val current = _state.value
-        val turno = current.turno
+    fun closeTurno(efectivoContadoTexto: String) {
+
+        val turno = _state.value.turno
 
         if (turno == null) {
-            _state.value = current.copy(
-                message = "No hay un turno abierto"
-            )
+            showMessage("No hay un turno abierto.")
             return
         }
 
-        val contado =
-            efectivoContado.toBigDecimalOrNull()
+        val efectivo =
+            efectivoContadoTexto
+                .trim()
+                .replace(",", ".")
+                .toBigDecimalOrNull()
 
-        if (contado == null || contado < BigDecimal.ZERO) {
-            _state.value = current.copy(
-                message = "El efectivo contado no es válido"
-            )
+        if (efectivo == null || efectivo < BigDecimal.ZERO) {
+            showMessage("El efectivo contado no es válido.")
             return
         }
 
         viewModelScope.launch {
+
             _state.value = _state.value.copy(
-                loading = true,
-                message = null
+                loading = true
             )
 
-            runCatching {
-                val ventas =
-                    ventaRepository.observeAll().first()
-
-                val egresos =
-                    egresoRepository.byTurno(turno.id).first()
+            try {
 
                 val cierre =
-                    calcularCierreUseCase(
-                        turno = turno,
-                        ventas = ventas,
-                        egresos = egresos
+                    cerrarTurnoUseCase(
+                        turno,
+                        efectivo
                     )
 
                 val diferencia =
-                    contado.subtract(cierre.efectivoEsperado)
-
-                turnoRepository.cerrar(
-                    turno.copy(
-                        abierto = false,
-                        closedAt = Instant.now(),
-                        efectivoContado = contado,
-                        diferencia = diferencia
+                    cierre.diferencia.setScale(
+                        2,
+                        java.math.RoundingMode.HALF_UP
                     )
-                )
-
-                Triple(cierre, contado, diferencia)
-            }.onSuccess { (cierre, contado, diferencia) ->
-
-                val signo =
-                    if (diferencia >= BigDecimal.ZERO) "+" else ""
 
                 _state.value = _state.value.copy(
                     loading = false,
                     message =
                         "Turno cerrado.\n" +
-                        "Efectivo esperado: ${money(cierre.efectivoEsperado)}\n" +
-                        "Efectivo contado: ${money(contado)}\n" +
-                        "Diferencia: $signo${money(diferencia)}"
+                        "Efectivo esperado: $ ${
+                            cierre.efectivoEsperado.setScale(
+                                2,
+                                java.math.RoundingMode.HALF_UP
+                            )
+                        }\n" +
+                        "Efectivo contado: $ ${
+                            cierre.efectivoContado.setScale(
+                                2,
+                                java.math.RoundingMode.HALF_UP
+                            )
+                        }\n" +
+                        "Diferencia: $diferencia"
                 )
-            }.onFailure { error ->
+
+            } catch (e: Exception) {
+
                 _state.value = _state.value.copy(
                     loading = false,
                     message =
-                        error.message
-                            ?: "No se pudo cerrar el turno"
+                        e.message
+                            ?: "No se pudo cerrar el turno."
                 )
             }
         }
     }
 
-    private fun money(value: BigDecimal): String =
-        "$" + value.setScale(2).toPlainString()
+    fun clearMessage() {
+        _state.value = _state.value.copy(
+            message = null
+        )
+    }
+
+    private fun showMessage(message: String) {
+        _state.value = _state.value.copy(
+            message = message
+        )
+    }
 }

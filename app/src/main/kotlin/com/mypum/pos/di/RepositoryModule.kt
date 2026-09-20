@@ -12,7 +12,14 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 @Module @InstallIn(SingletonComponent::class) object RepositoryModule {
  @Provides fun product(d:ProductoDao):ProductoRepository=ProductoRepositoryImpl(d)
- @Provides fun sale(d:VentaDao,p:ProductoDao,db:com.mypum.pos.data.local.PosDatabase):VentaRepository=VentaRepositoryImpl(d)
+ @Provides
+ fun sale(
+     d: VentaDao,
+     p: ProductoDao,
+     detalle: DetalleVentaDao,
+     db: com.mypum.pos.data.local.PosDatabase
+ ): VentaRepository =
+     VentaRepositoryImpl(d, p, detalle, db)
  @Provides fun egreso(d:EgresoDao):EgresoRepository=EgresoRepositoryImpl(d)
  @Provides fun turno(d:TurnoDao):TurnoRepository=TurnoRepositoryImpl(d)
  @Provides fun usuario(d:UsuarioDao):UsuarioRepository=UsuarioRepositoryImpl(d)
@@ -32,5 +39,12 @@ import dagger.hilt.components.SingletonComponent
      r:TurnoRepository
  ):CerrarTurnoUseCase=CerrarTurnoUseCase(r)
 
- @Provides fun calcularCierreUseCase():CalcularCierreUseCase=CalcularCierreUseCase()
+ @Provides fun calcularCierreUseCase(
+     ventas: VentaRepository,
+     egresos: EgresoRepository
+ ):CalcularCierreUseCase=CalcularCierreUseCase(ventas, egresos)
+
+ @Provides fun registrarVentaUseCase(
+     r: VentaRepository
+ ): RegistrarVentaUseCase = RegistrarVentaUseCase(r)
 }
