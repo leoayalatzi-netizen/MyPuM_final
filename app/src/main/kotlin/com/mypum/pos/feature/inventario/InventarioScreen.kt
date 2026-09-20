@@ -1,5 +1,6 @@
 package com.mypum.pos.feature.inventario
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mypum.pos.domain.model.Producto
+import com.mypum.pos.domain.model.subscription.Plan
+import com.mypum.pos.feature.subscription.ProScreen
 import com.mypum.pos.domain.model.enums.UnidadMedida
 import java.text.NumberFormat
 import java.util.Locale
@@ -59,6 +64,7 @@ fun InventarioScreen(
 
     var query by remember { mutableStateOf("") }
     var productoAEliminar by remember { mutableStateOf<Producto?>(null) }
+    var showProScreen by remember { mutableStateOf(false) }
 
     val products = state.productos.filter {
         query.isBlank() ||
@@ -105,9 +111,63 @@ fun InventarioScreen(
             }
 
             Text(
-                "${state.productos.size} productos activos",
+                buildString {
+                    append(state.plan.name)
+                    append(" · ")
+                    append(state.productos.size)
+
+                    state.limiteProductos?.let { limite ->
+                        append("/")
+                        append(limite)
+                    }
+
+                    append(" productos")
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (state.plan == Plan.FREE) {
+                Spacer(Modifier.height(10.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showProScreen = true
+                        },
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "MyPuM PRO",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+
+                            Text(
+                                text = "$99 MXN/año · Productos ilimitados y más funciones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Text(
+                            text = "Ver",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
 
@@ -185,6 +245,30 @@ fun InventarioScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    if (showProScreen) {
+        Dialog(
+            onDismissRequest = {
+                showProScreen = false
+            },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                ProScreen(
+                    onUpgrade = {
+                        // Google Play Billing se conectará posteriormente.
+                    },
+                    onBack = {
+                        showProScreen = false
+                    }
+                )
             }
         }
     }
