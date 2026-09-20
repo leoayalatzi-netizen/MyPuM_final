@@ -17,6 +17,9 @@ interface ProductoDao {
     @Query("SELECT * FROM productos WHERE codigo=:codigo LIMIT 1")
     suspend fun byCodigo(codigo: String): ProductoEntity?
 
+    @Query("SELECT COUNT(*) FROM productos")
+    suspend fun count(): Int
+
     @Insert
     suspend fun insert(e: ProductoEntity): Long
 
