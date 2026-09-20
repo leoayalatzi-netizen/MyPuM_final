@@ -12,4 +12,6 @@ interface ProductoRepository {
     suspend fun guardar(producto: Producto): Long
 
     suspend fun eliminar(producto: Producto)
+
+    suspend fun contarProductos(): Int
 }

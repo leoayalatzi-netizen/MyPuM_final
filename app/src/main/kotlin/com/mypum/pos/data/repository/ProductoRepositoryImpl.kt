@@ -19,10 +19,21 @@ class ProductoRepositoryImpl(
     override suspend fun buscarPorCodigo(codigo: String) =
         dao.byCodigo(codigo)?.toDomain()
 
-    override suspend fun guardar(producto: Producto) =
-        dao.insert(producto.toEntity())
+    override suspend fun guardar(producto: Producto): Long {
+        val entity = producto.toEntity()
+
+        return if (producto.id == 0L) {
+            dao.insert(entity)
+        } else {
+            dao.update(entity)
+            producto.id
+        }
+    }
 
     override suspend fun eliminar(producto: Producto) {
         dao.delete(producto.toEntity())
     }
+
+    override suspend fun contarProductos(): Int =
+        dao.count()
 }
