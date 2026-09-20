@@ -4,6 +4,7 @@ import com.mypum.pos.domain.usecase.egresos.RegistrarEgresoUseCase
 import com.mypum.pos.domain.usecase.turno.AbrirTurnoUseCase
 import com.mypum.pos.domain.usecase.turno.CerrarTurnoUseCase
 import com.mypum.pos.domain.usecase.turno.CalcularCierreUseCase
+import com.mypum.pos.domain.usecase.venta.RegistrarVentaUseCase
 import com.mypum.pos.data.repository.*
 import com.mypum.pos.data.local.dao.*
 import dagger.Module
