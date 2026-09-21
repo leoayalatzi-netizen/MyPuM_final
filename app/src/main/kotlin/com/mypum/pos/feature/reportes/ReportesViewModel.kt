@@ -2,7 +2,7 @@ package com.mypum.pos.feature.reportes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mypum.pos.domain.model.enum.MetodoPago
+import com.mypum.pos.domain.model.enumss.MetodoPago
 import com.mypum.pos.domain.repository.EgresoRepository
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.ReporteRepository

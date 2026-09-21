@@ -52,7 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mypum.pos.domain.model.Producto
 import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.feature.subscription.ProScreen
-import com.mypum.pos.domain.model.enum.UnidadMedida
+import com.mypum.pos.domain.model.enumss.UnidadMedida
 import java.text.NumberFormat
 import java.util.Locale
 

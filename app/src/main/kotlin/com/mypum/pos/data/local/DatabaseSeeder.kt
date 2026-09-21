@@ -4,8 +4,8 @@ import com.mypum.pos.data.local.dao.ProductoDao
 import com.mypum.pos.data.local.dao.UsuarioDao
 import com.mypum.pos.data.local.entity.ProductoEntity
 import com.mypum.pos.data.local.entity.UsuarioEntity
-import com.mypum.pos.domain.model.enum.RolUsuario
-import com.mypum.pos.domain.model.enum.UnidadMedida
+import com.mypum.pos.domain.model.enumss.RolUsuario
+import com.mypum.pos.domain.model.enumss.UnidadMedida
 import com.mypum.pos.domain.util.PinHasher
 import java.math.BigDecimal
 import java.time.Instant

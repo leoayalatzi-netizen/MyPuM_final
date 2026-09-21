@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mypum.pos.domain.model.ItemCarrito
-import com.mypum.pos.domain.model.enum.MetodoPago
+import com.mypum.pos.domain.model.enumss.MetodoPago
 import com.mypum.pos.feature.venta.scanner.BarcodeScannerDialog
 import java.math.BigDecimal
 import java.text.NumberFormat

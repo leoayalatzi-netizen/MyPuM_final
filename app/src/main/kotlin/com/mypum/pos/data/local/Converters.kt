@@ -2,7 +2,7 @@ package com.mypum.pos.data.local
 import androidx.room.TypeConverter
 import java.math.BigDecimal
 import java.time.Instant
-import com.mypum.pos.domain.model.enums.*
+import com.mypum.pos.domain.model.enumss.*
 class Converters {
  @TypeConverter fun instantToLong(v:Instant?):Long?=v?.toEpochMilli()
  @TypeConverter fun longToInstant(v:Long?):Instant?=v?.let(Instant::ofEpochMilli)

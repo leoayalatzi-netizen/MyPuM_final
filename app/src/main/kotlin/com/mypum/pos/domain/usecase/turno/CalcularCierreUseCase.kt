@@ -1,7 +1,7 @@
 package com.mypum.pos.domain.usecase.turno
 
 import com.mypum.pos.domain.model.CierreTurno
-import com.mypum.pos.domain.model.enums.MetodoPago
+import com.mypum.pos.domain.model.enumss.MetodoPago
 import com.mypum.pos.domain.model.Turno
 import com.mypum.pos.domain.repository.EgresoRepository
 import com.mypum.pos.domain.repository.VentaRepository

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mypum.pos.domain.model.ItemCarrito
 import com.mypum.pos.domain.model.Turno
 import com.mypum.pos.domain.model.Venta
-import com.mypum.pos.domain.model.enum.MetodoPago
+import com.mypum.pos.domain.model.enumss.MetodoPago
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.TurnoRepository
 import com.mypum.pos.domain.repository.VentaRepository
@@ -437,36 +437,4 @@ class VentaViewModel @Inject constructor(
                                 java.math.RoundingMode.HALF_UP
                             )
                         }\n" +
-                        "Efectivo contado: $ ${
-                            cierre.efectivoContado.setScale(
-                                2,
-                                java.math.RoundingMode.HALF_UP
-                            )
-                        }\n" +
-                        "Diferencia: $diferencia"
-                )
-
-            } catch (e: Exception) {
-
-                _state.value = _state.value.copy(
-                    loading = false,
-                    message =
-                        e.message
-                            ?: "No se pudo cerrar el turno."
-                )
-            }
-        }
-    }
-
-    fun clearMessage() {
-        _state.value = _state.value.copy(
-            message = null
-        )
-    }
-
-    private fun showMessage(message: String) {
-        _state.value = _state.value.copy(
-            message = message
-        )
-    }
-}
+                        "Efectivo con
