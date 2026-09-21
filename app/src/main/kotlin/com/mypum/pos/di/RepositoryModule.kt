@@ -37,8 +37,9 @@ import dagger.hilt.components.SingletonComponent
  ):AbrirTurnoUseCase=AbrirTurnoUseCase(r)
 
  @Provides fun cerrarTurnoUseCase(
-     r:TurnoRepository
- ):CerrarTurnoUseCase=CerrarTurnoUseCase(r)
+     r: TurnoRepository,
+     calcularCierre: CalcularCierreUseCase
+ ): CerrarTurnoUseCase = CerrarTurnoUseCase(r, calcularCierre)
 
  @Provides fun calcularCierreUseCase(
      ventas: VentaRepository,

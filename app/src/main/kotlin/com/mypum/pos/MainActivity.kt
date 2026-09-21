@@ -21,9 +21,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyPuMTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    val nav = rememberNavController()
-                    MyPuMNavHost(nav = nav)
+                Surface(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val navController = rememberNavController()
+                    MyPuMNavHost(nav = navController)
                 }
             }
         }

@@ -2,20 +2,21 @@ package com.mypum.pos.feature.reportes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mypum.pos.domain.model.enum.MetodoPago
 import com.mypum.pos.domain.repository.EgresoRepository
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.ReporteRepository
 import com.mypum.pos.domain.repository.TurnoRepository
 import com.mypum.pos.domain.repository.VentaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.BigDecimal
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -36,42 +37,13 @@ class ReportesViewModel @Inject constructor(
 
     private fun cargar() {
         viewModelScope.launch {
-
             combine(
                 ventaRepository.observeAll(),
                 productoRepository.observeAll(),
-                turnoRepository.observeActivo()
-            ) { ventas, productos, turnoActivo ->
-                Triple(ventas, productos, turnoActivo)
+                turnoRepository.observeAll()
+            ) { ventas, productos, turnos ->
+                Triple(ventas, productos, turnos)
             }
-                .flatMapLatest { data ->
-
-                    val turno = data.third
-
-                    if (turno == null) {
-                        flowOf(
-                            ReportesData(
-                                ventas = data.first,
-                                productos = data.second,
-                                turno = null,
-                                egresos = emptyList()
-                            )
-                        )
-                    } else {
-                        egresoRepository
-                            .byTurno(turno.id)
-                            .combine(
-                                flowOf(data.first)
-                            ) { egresos, ventas ->
-                                ReportesData(
-                                    ventas = ventas,
-                                    productos = data.second,
-                                    turno = turno,
-                                    egresos = egresos
-                                )
-                            }
-                    }
-                }
                 .catch { error ->
                     _state.value = _state.value.copy(
                         loading = false,
@@ -81,30 +53,85 @@ class ReportesViewModel @Inject constructor(
                 }
                 .collect { data ->
 
-                    val grupos = data.turno?.let { turno ->
+                    val ventas = data.first
+                    val productos = data.second
+                    val turnos = data.third
 
-                        listOf(
-                            ReporteTurno(
-                                turno = turno,
-                                ventas = data.ventas.filter {
-                                    it.turnoId == turno.id
-                                },
-                                egresos = data.egresos
-                            )
+                    val egresosPorTurno = turnos.associate { turno ->
+                        turno.id to runCatching {
+                            egresoRepository
+                                .byTurno(turno.id)
+                                .first()
+                        }.getOrDefault(emptyList())
+                    }
+
+                    val grupos = turnos.map { turno ->
+                        ReporteTurno(
+                            turno = turno,
+                            ventas = ventas.filter {
+                                it.turnoId == turno.id
+                            },
+                            egresos = egresosPorTurno[turno.id]
+                                ?: emptyList()
                         )
-                    } ?: emptyList()
+                    }
 
                     val dias = grupos
                         .groupBy { it.fecha }
-                        .map { (fecha, turnos) ->
+                        .map { (fecha, gruposDelDia) ->
                             ReporteDia(
                                 fecha = fecha,
-                                turnos = turnos.sortedByDescending {
+                                turnos = gruposDelDia.sortedByDescending {
                                     it.turno.openedAt
                                 }
                             )
                         }
                         .sortedByDescending { it.fecha }
+
+                    val ventasValidas = ventas.filter {
+                        !it.cancelada
+                    }
+
+                    val totalVentas =
+                        ventasValidas.fold(BigDecimal.ZERO) { total, venta ->
+                            total.add(venta.total)
+                        }
+
+                    val efectivo =
+                        ventasValidas
+                            .filter {
+                                it.metodoPago == MetodoPago.EFECTIVO
+                            }
+                            .fold(BigDecimal.ZERO) { total, venta ->
+                                total.add(venta.total)
+                            }
+
+                    val tarjeta =
+                        ventasValidas
+                            .filter {
+                                it.metodoPago == MetodoPago.TARJETA
+                            }
+                            .fold(BigDecimal.ZERO) { total, venta ->
+                                total.add(venta.total)
+                            }
+
+                    val transferencia =
+                        ventasValidas
+                            .filter {
+                                it.metodoPago == MetodoPago.TRANSFERENCIA
+                            }
+                            .fold(BigDecimal.ZERO) { total, venta ->
+                                total.add(venta.total)
+                            }
+
+                    val totalEgresos =
+                        egresosPorTurno.values
+                            .flatten()
+                            .fold(BigDecimal.ZERO) { total, egreso ->
+                                total.add(egreso.monto)
+                            }
+
+                    val neto = totalVentas.subtract(totalEgresos)
 
                     val top = runCatching {
                         reporteRepository.topProductos()
@@ -116,20 +143,27 @@ class ReportesViewModel @Inject constructor(
 
                     _state.value = ReportesContractState(
                         loading = false,
-                        ventas = data.ventas,
-                        productos = data.productos,
+                        ventas = ventas,
+                        productos = productos,
                         topProductos = top,
-                        turnos = grupos.map { it.turno },
-                        egresos = data.egresos,
+                        turnos = turnos,
+                        egresos = egresosPorTurno.values.flatten(),
                         dias = dias,
+
+                        totalVentas = totalVentas,
+                        efectivo = efectivo,
+                        tarjeta = tarjeta,
+                        transferencia = transferencia,
+                        totalEgresos = totalEgresos,
+                        neto = neto,
+
                         turnoSeleccionadoId =
                             actual.turnoSeleccionadoId
                                 ?.takeIf { id ->
-                                    grupos.any { it.turno.id == id }
+                                    turnos.any { it.id == id }
                                 }
-                                ?: grupos.firstOrNull()
-                                    ?.turno
-                                    ?.id,
+                                ?: turnos.firstOrNull()?.id,
+
                         message = null
                     )
                 }
@@ -153,11 +187,4 @@ class ReportesViewModel @Inject constructor(
             message = null
         )
     }
-
-    private data class ReportesData(
-        val ventas: List<com.mypum.pos.domain.model.Venta>,
-        val productos: List<com.mypum.pos.domain.model.Producto>,
-        val turno: com.mypum.pos.domain.model.Turno?,
-        val egresos: List<com.mypum.pos.domain.model.Egreso>
-    )
 }
