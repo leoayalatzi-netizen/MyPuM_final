@@ -429,12 +429,8 @@ class VentaViewModel @Inject constructor(
 
                 _state.value = _state.value.copy(
                     loading = false,
-                    message =
-                        "Turno cerrado.\n" +
-                        "Efectivo esperado: $ ${
-                            cierre.efectivoEsperado.setScale(
-                                2,
-                                java.math.RoundingMode.HALF_UP
-                            )
-                        }\n" +
-                        "Efectivo con
+                    message = "Turno cerrado.\n" +
+                        "Efectivo esperado: ${cierre.efectivoEsperado.setScale(2, java.math.RoundingMode.HALF_UP)}\n" +
+                        "Efectivo contado: ${cierre.efectivoContado.setScale(2, java.math.RoundingMode.HALF_UP)}\n" +
+                        "Diferencia: ${cierre.diferencia.setScale(2, java.math.RoundingMode.HALF_UP)}"
+                )
