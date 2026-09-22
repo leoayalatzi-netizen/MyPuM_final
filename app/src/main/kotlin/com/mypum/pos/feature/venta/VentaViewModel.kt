@@ -434,3 +434,9 @@ class VentaViewModel @Inject constructor(
                         "Efectivo contado: ${cierre.efectivoContado.setScale(2, java.math.RoundingMode.HALF_UP)}\n" +
                         "Diferencia: ${cierre.diferencia.setScale(2, java.math.RoundingMode.HALF_UP)}"
                 )
+                } catch (e: Exception) {
+                    _state.value = _state.value.copy(
+                        loading = false,
+                        message = e.message ?: "No se pudo cerrar el turno."
+                    )
+                }
