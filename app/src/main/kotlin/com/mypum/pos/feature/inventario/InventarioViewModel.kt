@@ -3,6 +3,7 @@ package com.mypum.pos.feature.inventario
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mypum.pos.domain.model.Producto
+import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.domain.model.enumss.UnidadMedida
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.subscription.SubscriptionRepository
