@@ -87,7 +87,7 @@ fun ReportesScreen(
                     } else {
                         items(
                             state.topProductos.take(10),
-                            key = { it.productoId }
+                            key = { "producto_${it.productoId}" }
                         ) { producto ->
                             ProductoTopCard(producto)
                         }
@@ -107,7 +107,7 @@ fun ReportesScreen(
                     } else {
                         items(
                             state.turnos,
-                            key = { it.id }
+                            key = { "turno_${it.id}" }
                         ) { turno ->
                             val ventasTurno = state.ventas.filter {
                                 it.turnoId == turno.id && !it.cancelada
@@ -177,7 +177,7 @@ fun ReportesScreen(
 
                     items(
                         state.dias,
-                        key = { it.fecha.toString() }
+                        key = { "dia_${it.fecha}" }
                     ) { dia ->
                         Card(
                             modifier = Modifier.fillMaxWidth()
