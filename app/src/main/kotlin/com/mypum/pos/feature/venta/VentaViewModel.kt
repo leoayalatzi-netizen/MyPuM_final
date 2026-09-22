@@ -440,3 +440,19 @@ class VentaViewModel @Inject constructor(
                         message = e.message ?: "No se pudo cerrar el turno."
                     )
                 }
+
+        }
+    }
+
+    fun clearMessage() {
+        _state.value = _state.value.copy(
+            message = null
+        )
+    }
+
+    private fun showMessage(message: String) {
+        _state.value = _state.value.copy(
+            message = message
+        )
+    }
+}
