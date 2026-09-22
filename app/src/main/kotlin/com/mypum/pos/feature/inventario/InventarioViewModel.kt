@@ -177,6 +177,18 @@ class InventarioViewModel @Inject constructor(
         }
     }
 
+    fun activarPro() {
+        viewModelScope.launch {
+            runCatching {
+                subscriptionRepository.setPlan(Plan.PRO)
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    message = error.message ?: "No se pudo activar PRO"
+                )
+            }
+        }
+    }
+
     fun eliminar(producto: Producto) {
         viewModelScope.launch {
             runCatching {

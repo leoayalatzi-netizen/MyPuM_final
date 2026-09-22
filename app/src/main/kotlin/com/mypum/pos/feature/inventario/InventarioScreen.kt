@@ -263,7 +263,8 @@ fun InventarioScreen(
             ) {
                 ProScreen(
                     onUpgrade = {
-                        // Google Play Billing se conectará posteriormente.
+                        viewModel.activarPro()
+                        showProScreen = false
                     },
                     onBack = {
                         showProScreen = false
