@@ -61,6 +61,10 @@ fun ReportesScreen(
                     }
 
                     item {
+                        AnalisisAvanzadoCard(state)
+                    }
+
+                    item {
                         Text(
                             text = "Métodos de pago",
                             style = MaterialTheme.typography.titleLarge
@@ -255,6 +259,96 @@ private fun ResumenFinanciero(
                 text = "Neto: ${money(state.neto)}",
                 style = MaterialTheme.typography.titleMedium
             )
+        }
+    }
+}
+
+@Composable
+private fun AnalisisAvanzadoCard(
+    state: ReportesContractState
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Análisis avanzado",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text("Operaciones: ${state.operaciones}")
+
+            Text(
+                "Ticket promedio: ${money(state.ticketPromedio)}"
+            )
+
+            Text(
+                "Costo de mercancía: ${money(state.costoMercancia)}"
+            )
+
+            Text(
+                "Utilidad bruta: ${money(state.utilidadBruta)}"
+            )
+
+            Text(
+                "Margen bruto: ${
+                    state.margenBruto.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                    )
+                }%"
+            )
+        }
+    }
+
+    Spacer(Modifier.height(4.dp))
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Stock bajo",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            if (state.productosStockBajo.isEmpty()) {
+                Text("No hay productos con stock bajo.")
+            } else {
+                state.productosStockBajo
+                    .take(10)
+                    .forEach { producto ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween
+                        ) {
+                            Text(producto.nombre)
+
+                            Text(
+                                "${producto.stock} / ${producto.stockMinimo}"
+                            )
+                        }
+                    }
+
+                if (state.productosStockBajo.size > 10) {
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        "... y ${
+                            state.productosStockBajo.size - 10
+                        } productos más."
+                    )
+                }
+            }
         }
     }
 }

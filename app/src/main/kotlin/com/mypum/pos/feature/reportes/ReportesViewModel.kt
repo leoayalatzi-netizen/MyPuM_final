@@ -10,6 +10,7 @@ import com.mypum.pos.domain.repository.TurnoRepository
 import com.mypum.pos.domain.repository.VentaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
+import java.math.RoundingMode
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,9 +110,7 @@ class ReportesViewModel @Inject constructor(
                                         it.metodoPago ==
                                             MetodoPago.EFECTIVO
                                     }
-                                    .fold(
-                                        BigDecimal.ZERO
-                                    ) { total, venta ->
+                                    .fold(BigDecimal.ZERO) { total, venta ->
                                         total.add(venta.total)
                                     }
 
@@ -121,9 +120,7 @@ class ReportesViewModel @Inject constructor(
                                         it.metodoPago ==
                                             MetodoPago.TARJETA
                                     }
-                                    .fold(
-                                        BigDecimal.ZERO
-                                    ) { total, venta ->
+                                    .fold(BigDecimal.ZERO) { total, venta ->
                                         total.add(venta.total)
                                     }
 
@@ -133,23 +130,83 @@ class ReportesViewModel @Inject constructor(
                                         it.metodoPago ==
                                             MetodoPago.TRANSFERENCIA
                                     }
-                                    .fold(
-                                        BigDecimal.ZERO
-                                    ) { total, venta ->
+                                    .fold(BigDecimal.ZERO) { total, venta ->
                                         total.add(venta.total)
                                     }
 
                             val totalEgresos =
                                 egresosPorTurno.values
                                     .flatten()
-                                    .fold(
-                                        BigDecimal.ZERO
-                                    ) { total, egreso ->
+                                    .fold(BigDecimal.ZERO) { total, egreso ->
                                         total.add(egreso.monto)
                                     }
 
-                            val neto =
-                                totalVentas.subtract(totalEgresos)
+                            val operaciones = ventasValidas.size
+
+                            val ticketPromedio =
+                                if (operaciones > 0) {
+                                    totalVentas.divide(
+                                        BigDecimal(operaciones),
+                                        2,
+                                        RoundingMode.HALF_UP
+                                    )
+                                } else {
+                                    BigDecimal.ZERO
+                                }
+
+                            /*
+                             * El costo se obtiene directamente de los
+                             * productos contenidos en cada ItemCarrito.
+                             *
+                             * Esto permite calcular utilidad histórica
+                             * con el costo almacenado en el momento en
+                             * que el producto forma parte de la venta.
+                             */
+                            val costoMercancia =
+                                ventasValidas.fold(BigDecimal.ZERO) {
+                                        totalVenta,
+                                        venta ->
+                                    venta.items.fold(totalVenta) {
+                                            totalItems,
+                                            item ->
+                                        val costoUnitario =
+                                            item.producto.costo
+
+                                        val costoItem =
+                                            costoUnitario.multiply(
+                                                item.cantidad
+                                            )
+
+                                        totalItems.add(costoItem)
+                                    }
+                                }
+
+                            val utilidadBruta =
+                                totalVentas.subtract(costoMercancia)
+
+                            val margenBruto =
+                                if (totalVentas.compareTo(
+                                        BigDecimal.ZERO
+                                    ) > 0
+                                ) {
+                                    utilidadBruta
+                                        .multiply(BigDecimal("100"))
+                                        .divide(
+                                            totalVentas,
+                                            2,
+                                            RoundingMode.HALF_UP
+                                        )
+                                } else {
+                                    BigDecimal.ZERO
+                                }
+
+                            val productosStockBajo =
+                                productos
+                                    .filter { it.activo }
+                                    .filter {
+                                        it.stock <= it.stockMinimo
+                                    }
+                                    .sortedBy { it.stock }
 
                             val top =
                                 runCatching {
@@ -174,11 +231,18 @@ class ReportesViewModel @Inject constructor(
                                     totalVentas = totalVentas,
                                     efectivo = efectivo,
                                     tarjeta = tarjeta,
-                                    transferencia =
-                                        transferencia,
-                                    totalEgresos =
-                                        totalEgresos,
-                                    neto = neto,
+                                    transferencia = transferencia,
+                                    totalEgresos = totalEgresos,
+                                    neto = totalVentas.subtract(
+                                        totalEgresos
+                                    ),
+                                    operaciones = operaciones,
+                                    ticketPromedio = ticketPromedio,
+                                    costoMercancia = costoMercancia,
+                                    utilidadBruta = utilidadBruta,
+                                    margenBruto = margenBruto,
+                                    productosStockBajo =
+                                        productosStockBajo,
                                     turnoSeleccionadoId =
                                         actual.turnoSeleccionadoId
                                             ?.takeIf { id ->

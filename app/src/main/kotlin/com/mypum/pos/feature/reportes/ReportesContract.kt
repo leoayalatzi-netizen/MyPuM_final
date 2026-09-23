@@ -29,6 +29,14 @@ data class ReportesContractState(
     val totalEgresos: BigDecimal = BigDecimal.ZERO,
     val neto: BigDecimal = BigDecimal.ZERO,
 
+    // Métricas PRO
+    val operaciones: Int = 0,
+    val ticketPromedio: BigDecimal = BigDecimal.ZERO,
+    val costoMercancia: BigDecimal = BigDecimal.ZERO,
+    val utilidadBruta: BigDecimal = BigDecimal.ZERO,
+    val margenBruto: BigDecimal = BigDecimal.ZERO,
+    val productosStockBajo: List<Producto> = emptyList()
+,
     val turnoSeleccionadoId: Long? = null
 ) : UiState
 
