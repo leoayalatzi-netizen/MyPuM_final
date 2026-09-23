@@ -17,31 +17,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Validate secrets
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
-        run: |
-          set -e
-
-          if [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::error::Falta el secret MYPUM_KEYSTORE_PASSWORD"
-            exit 1
-          fi
-
-          if [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Falta el secret MYPUM_KEY_PASSWORD"
-            exit 1
-          fi
-
       - name: Generate upload key
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
         run: |
           set -e
 
           mkdir -p signing
+
+          KEYSTORE_PASSWORD="$(openssl rand -base64 32)"
+          KEY_PASSWORD="$(openssl rand -base64 32)"
 
           keytool -genkeypair \
             -v \
@@ -56,12 +39,18 @@ jobs:
 
           test -s signing/mypum-upload-key.jks
 
+          cat > signing/credentials.txt <<EOF
+          MYPUM_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
+          MYPUM_KEY_PASSWORD=$KEY_PASSWORD
+          MYPUM_KEY_ALIAS=mypum_upload
+          EOF
+
           echo "Keystore generado correctamente."
 
-      - name: Upload keystore artifact
+      - name: Upload signing files
         uses: actions/upload-artifact@v4
         with:
           name: MyPuM-upload-key
-          path: signing/mypum-upload-key.jks
+          path: signing/
           if-no-files-found: error
           retention-days: 1
