@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
@@ -126,12 +125,6 @@ fun ProScreen(
             icon = Icons.Default.Groups,
             title = "Empleados y permisos",
             description = "Administra usuarios y controla sus permisos."
-        )
-
-        ProFeature(
-            icon = Icons.Default.CloudSync,
-            title = "Sincronización en la nube",
-            description = "Prepara tu negocio para trabajar con información sincronizada."
         )
 
         Spacer(Modifier.height(4.dp))
