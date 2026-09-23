@@ -33,7 +33,7 @@ data class PlanEntitlements(
             bulkImport = true,
             backupAdvanced = true,
             employeeManagement = true,
-            cloudSync = true,
+            cloudSync = false,
             multiStore = true
         )
 

@@ -23,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.mypum.pos.feature.egresos.EgresosScreen
 import com.mypum.pos.feature.egresos.EgresosViewModel
+import com.mypum.pos.feature.empleados.EmpleadosScreen
 import com.mypum.pos.feature.inventario.InventarioScreen
 import com.mypum.pos.feature.reportes.ReportesScreen
 import com.mypum.pos.feature.venta.VentaScreen
@@ -104,6 +105,14 @@ fun MyPuMNavHost(nav: NavHostController) {
 
             composable("reportes") {
                 ReportesScreen()
+            }
+
+            composable("empleados") {
+                EmpleadosScreen(
+                    onBack = {
+                        nav.popBackStack()
+                    }
+                )
             }
         }
     }
