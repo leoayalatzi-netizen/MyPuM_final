@@ -60,8 +60,10 @@ fun ReportesScreen(
                         ResumenFinanciero(state)
                     }
 
-                    item {
-                        AnalisisAvanzadoCard(state)
+                    if (state.plan == com.mypum.pos.domain.model.subscription.Plan.PRO) {
+                        item {
+                            AnalisisAvanzadoCard(state)
+                        }
                     }
 
                     item {

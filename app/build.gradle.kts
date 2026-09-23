@@ -34,6 +34,7 @@ android {
 }
 dependencies {
     implementation(libs.androidx.core)
+    implementation(libs.google.billing.ktx)
     implementation(libs.androidx.activity.compose)
     implementation("androidx.camera:camera-core:1.3.4")
     implementation("androidx.camera:camera-camera2:1.3.4")

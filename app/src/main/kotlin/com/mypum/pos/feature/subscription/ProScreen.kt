@@ -1,5 +1,7 @@
 package com.mypum.pos.feature.subscription
 
+import android.app.Activity
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,19 +27,29 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.domain.model.subscription.SubscriptionPricing
 
 @Composable
 fun ProScreen(
-    onUpgrade: () -> Unit = {},
     onEmpleados: () -> Unit = {},
-    onBack: () -> Unit = {}
+    onBack: () -> Unit = {},
+    viewModel: ProViewModel = hiltViewModel()
 ) {
     val price = SubscriptionPricing.PRO_ANNUAL_PRICE
     val currency = SubscriptionPricing.PRO_ANNUAL_CURRENCY
+
+    val plan by viewModel.plan.collectAsStateWithLifecycle()
+    val isPro = plan == Plan.PRO
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val activity = LocalContext.current as? Activity
 
     Column(
         modifier = Modifier
@@ -129,24 +141,43 @@ fun ProScreen(
             description = "Administra usuarios y controla sus permisos."
         )
 
-        OutlinedButton(
-            onClick = onEmpleados,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Administrar empleados")
+        if (isPro) {
+            OutlinedButton(
+                onClick = onEmpleados,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Administrar empleados")
+            }
         }
 
         Spacer(Modifier.height(4.dp))
 
-        Button(
-            onClick = onUpgrade,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Actualizar a PRO")
+        if (isPro) {
+            OutlinedButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("✓ PRO activo")
+            }
+        } else {
+            Button(
+                onClick = {
+                    activity?.let(viewModel::comprarPro)
+                },
+                enabled = activity != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Actualizar a PRO")
+            }
         }
 
         Text(
-            text = "La compra se realizará mediante Google Play cuando el sistema de suscripciones esté habilitado.",
+            text = message ?: if (isPro) {
+                "Tu suscripción PRO está activa."
+            } else {
+                "La compra se realizará mediante Google Play."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -3,11 +3,13 @@ package com.mypum.pos.feature.reportes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mypum.pos.domain.model.enumss.MetodoPago
+import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.domain.repository.EgresoRepository
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.ReporteRepository
 import com.mypum.pos.domain.repository.TurnoRepository
 import com.mypum.pos.domain.repository.VentaRepository
+import com.mypum.pos.domain.repository.subscription.SubscriptionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -26,7 +28,8 @@ class ReportesViewModel @Inject constructor(
     private val productoRepository: ProductoRepository,
     private val reporteRepository: ReporteRepository,
     private val turnoRepository: TurnoRepository,
-    private val egresoRepository: EgresoRepository
+    private val egresoRepository: EgresoRepository,
+    private val subscriptionRepository: SubscriptionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ReportesContractState())
@@ -42,9 +45,15 @@ class ReportesViewModel @Inject constructor(
                 combine(
                     ventaRepository.observeAll(),
                     productoRepository.observeAll(),
-                    turnoRepository.observeAll()
-                ) { ventas, productos, turnos ->
-                    Triple(ventas, productos, turnos)
+                    turnoRepository.observeAll(),
+                    subscriptionRepository.observePlan()
+                ) { ventas, productos, turnos, plan ->
+                    ReportesData(
+                        ventas = ventas,
+                        productos = productos,
+                        turnos = turnos,
+                        plan = plan
+                    )
                 }
                     .catch { error ->
                         _state.value = _state.value.copy(
@@ -56,9 +65,10 @@ class ReportesViewModel @Inject constructor(
                     .collect { data ->
 
                         try {
-                            val ventas = data.first
-                            val productos = data.second
-                            val turnos = data.third
+                            val ventas = data.ventas
+                            val productos = data.productos
+                            val turnos = data.turnos
+                            val plan = data.plan
 
                             val egresosPorTurno =
                                 turnos.associate { turno ->
@@ -220,6 +230,7 @@ class ReportesViewModel @Inject constructor(
                             _state.value =
                                 ReportesContractState(
                                     loading = false,
+                                    plan = plan,
                                     ventas = ventas,
                                     productos = productos,
                                     topProductos = top,
@@ -292,3 +303,11 @@ class ReportesViewModel @Inject constructor(
         )
     }
 }
+
+
+private data class ReportesData(
+    val ventas: List<com.mypum.pos.domain.model.Venta>,
+    val productos: List<com.mypum.pos.domain.model.Producto>,
+    val turnos: List<com.mypum.pos.domain.model.Turno>,
+    val plan: Plan
+)

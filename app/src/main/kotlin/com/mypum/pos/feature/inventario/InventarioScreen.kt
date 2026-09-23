@@ -393,10 +393,6 @@ fun InventarioScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 ProScreen(
-                    onUpgrade = {
-                        viewModel.activarPro()
-                        showProScreen = false
-                    },
                     onEmpleados = {
                         showProScreen = false
                         onEmpleados()

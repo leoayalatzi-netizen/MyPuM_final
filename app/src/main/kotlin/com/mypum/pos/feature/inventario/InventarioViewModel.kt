@@ -3,7 +3,6 @@ package com.mypum.pos.feature.inventario
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mypum.pos.domain.model.Producto
-import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.domain.model.enumss.UnidadMedida
 import com.mypum.pos.domain.repository.ProductoRepository
 import com.mypum.pos.domain.repository.subscription.SubscriptionRepository
@@ -22,8 +21,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class InventarioViewModel @Inject constructor(
     private val productoRepository: ProductoRepository,
+    private val subscriptionRepository: SubscriptionRepository,
     private val verificarLimiteProductos: VerificarLimiteProductosUseCase,
-    private val subscriptionRepository: SubscriptionRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InventarioContractState())
@@ -179,18 +178,6 @@ class InventarioViewModel @Inject constructor(
                         else ->
                             error.message ?: "No se pudo guardar"
                     }
-                )
-            }
-        }
-    }
-
-    fun activarPro() {
-        viewModelScope.launch {
-            runCatching {
-                subscriptionRepository.setPlan(Plan.PRO)
-            }.onFailure { error ->
-                _state.value = _state.value.copy(
-                    message = error.message ?: "No se pudo activar PRO"
                 )
             }
         }

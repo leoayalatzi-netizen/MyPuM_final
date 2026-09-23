@@ -7,6 +7,7 @@ import com.mypum.pos.domain.model.Egreso
 import com.mypum.pos.domain.model.Producto
 import com.mypum.pos.domain.model.ProductoTop
 import com.mypum.pos.domain.model.Turno
+import com.mypum.pos.domain.model.subscription.Plan
 import com.mypum.pos.domain.model.Venta
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -14,6 +15,8 @@ import java.time.LocalDate
 data class ReportesContractState(
     val loading: Boolean = true,
     val message: String? = null,
+
+    val plan: Plan = Plan.FREE,
 
     val ventas: List<Venta> = emptyList(),
     val productos: List<Producto> = emptyList(),
