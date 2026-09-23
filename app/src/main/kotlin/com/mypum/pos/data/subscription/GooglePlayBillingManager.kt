@@ -150,7 +150,7 @@ class GooglePlayBillingManager @Inject constructor(
             }
 
             val details =
-                result.productDetailsList.firstOrNull()
+                result.firstOrNull()
 
             if (details == null) {
                 _message.value =
