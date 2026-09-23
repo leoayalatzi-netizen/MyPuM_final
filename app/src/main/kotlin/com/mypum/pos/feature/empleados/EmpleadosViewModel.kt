@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mypum.pos.domain.model.Usuario
 import com.mypum.pos.domain.model.enumss.RolUsuario
 import com.mypum.pos.domain.model.subscription.Plan
-import com.mypum.pos.domain.repository.SubscriptionRepository
+import com.mypum.pos.domain.repository.subscription.SubscriptionRepository
 import com.mypum.pos.domain.repository.UsuarioRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
