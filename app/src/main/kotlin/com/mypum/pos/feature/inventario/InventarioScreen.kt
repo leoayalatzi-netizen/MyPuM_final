@@ -76,6 +76,7 @@ import java.util.Locale
 
 @Composable
 fun InventarioScreen(
+    onEmpleados: () -> Unit = {},
     viewModel: InventarioViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -395,6 +396,10 @@ fun InventarioScreen(
                     onUpgrade = {
                         viewModel.activarPro()
                         showProScreen = false
+                    },
+                    onEmpleados = {
+                        showProScreen = false
+                        onEmpleados()
                     },
                     onBack = {
                         showProScreen = false

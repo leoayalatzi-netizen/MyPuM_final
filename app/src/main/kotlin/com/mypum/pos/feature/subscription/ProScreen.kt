@@ -127,6 +127,13 @@ fun ProScreen(
             description = "Administra usuarios y controla sus permisos."
         )
 
+        OutlinedButton(
+            onClick = onEmpleados,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Administrar empleados")
+        }
+
         Spacer(Modifier.height(4.dp))
 
         Button(

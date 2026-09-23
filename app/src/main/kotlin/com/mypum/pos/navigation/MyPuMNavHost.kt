@@ -87,7 +87,11 @@ fun MyPuMNavHost(nav: NavHostController) {
             }
 
             composable("inventario") {
-                InventarioScreen()
+                InventarioScreen(
+                    onEmpleados = {
+                        nav.navigate("empleados")
+                    }
+                )
             }
 
             composable("egresos") {
