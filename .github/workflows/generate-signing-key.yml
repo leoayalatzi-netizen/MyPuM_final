@@ -1,0 +1,67 @@
+name: Generate MyPuM Upload Key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-key:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Validate secrets
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+        run: |
+          set -e
+
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Falta el secret MYPUM_KEYSTORE_PASSWORD"
+            exit 1
+          fi
+
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Falta el secret MYPUM_KEY_PASSWORD"
+            exit 1
+          fi
+
+      - name: Generate upload key
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+        run: |
+          set -e
+
+          mkdir -p signing
+
+          keytool -genkeypair \
+            -v \
+            -keystore signing/mypum-upload-key.jks \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -alias mypum_upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=MyPuM, OU=Software, O=MyPuM, L=Mexico, ST=Jalisco, C=MX"
+
+          test -s signing/mypum-upload-key.jks
+
+          echo "Keystore generado correctamente."
+
+      - name: Upload keystore artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPuM-upload-key
+          path: signing/mypum-upload-key.jks
+          if-no-files-found: error
+          retention-days: 1
