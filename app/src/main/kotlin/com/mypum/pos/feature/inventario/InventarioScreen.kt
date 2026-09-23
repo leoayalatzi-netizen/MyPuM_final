@@ -264,33 +264,29 @@ fun InventarioScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = {
-                        if (state.plan == Plan.PRO) {
-                            exportLauncher.launch("MyPuM_inventario.csv")
-                        } else {
-                            showProScreen = true
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
+            if (state.plan == Plan.PRO) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.FileDownload,
-                        contentDescription = null
-                    )
+                    Button(
+                        onClick = {
+                            exportLauncher.launch("MyPuM_inventario.csv")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.FileDownload,
+                            contentDescription = null
+                        )
 
-                    Spacer(Modifier.padding(horizontal = 4.dp))
+                        Spacer(Modifier.padding(horizontal = 4.dp))
 
-                    Text("Exportar")
-                }
+                        Text("Exportar")
+                    }
 
-                OutlinedButton(
-                    onClick = {
-                        if (state.plan == Plan.PRO) {
+                    OutlinedButton(
+                        onClick = {
                             importLauncher.launch(
                                 arrayOf(
                                     "text/csv",
@@ -298,24 +294,22 @@ fun InventarioScreen(
                                     "text/*"
                                 )
                             )
-                        } else {
-                            showProScreen = true
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        Icons.Default.FileUpload,
-                        contentDescription = null
-                    )
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Default.FileUpload,
+                            contentDescription = null
+                        )
 
-                    Spacer(Modifier.padding(horizontal = 4.dp))
+                        Spacer(Modifier.padding(horizontal = 4.dp))
 
-                    Text("Importar")
+                        Text("Importar")
+                    }
                 }
-            }
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
+            }
 
             if (state.loading) {
 

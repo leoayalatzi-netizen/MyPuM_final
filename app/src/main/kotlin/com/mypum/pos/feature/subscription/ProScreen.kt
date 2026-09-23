@@ -1,6 +1,8 @@
 package com.mypum.pos.feature.subscription
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,7 +51,7 @@ fun ProScreen(
     val plan by viewModel.plan.collectAsStateWithLifecycle()
     val isPro = plan == Plan.PRO
     val message by viewModel.message.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as? Activity
+    val activity = findActivity(LocalContext.current)
 
     Column(
         modifier = Modifier
@@ -216,5 +218,14 @@ private fun ProFeature(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+
+private tailrec fun findActivity(context: Context): Activity? {
+    return when (context) {
+        is Activity -> context
+        is ContextWrapper -> findActivity(context.baseContext)
+        else -> null
     }
 }
