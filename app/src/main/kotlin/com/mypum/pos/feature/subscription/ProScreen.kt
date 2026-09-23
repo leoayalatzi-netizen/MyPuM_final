@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -32,6 +33,7 @@ import com.mypum.pos.domain.model.subscription.SubscriptionPricing
 @Composable
 fun ProScreen(
     onUpgrade: () -> Unit = {},
+    onEmpleados: () -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val price = SubscriptionPricing.PRO_ANNUAL_PRICE
