@@ -1,4 +1,21 @@
+
+
+
+
+
+
 package com.mypum.pos.feature.inventario
+
+import androidx.compose.ui.platform.LocalContext
+
+import androidx.compose.material.icons.filled.FileUpload
+
+import androidx.compose.material.icons.filled.FileDownload
+
+import androidx.activity.result.contract.ActivityResultContracts
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +83,65 @@ fun InventarioScreen(
     var query by remember { mutableStateOf("") }
     var productoAEliminar by remember { mutableStateOf<Producto?>(null) }
     var showProScreen by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val csv = InventarioCsv.exportar(state.productos)
+
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write("\uFEFF".toByteArray(Charsets.UTF_8))
+                    output.write(csv.toByteArray(Charsets.UTF_8))
+                } ?: error("No se pudo crear el archivo.")
+            }.onSuccess {
+                viewModel.mostrarMensaje(
+                    "Inventario exportado correctamente."
+                )
+            }.onFailure { error ->
+                viewModel.mostrarMensaje(
+                    error.message ?: "No se pudo exportar el inventario."
+                )
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver
+                    .openInputStream(uri)
+                    ?.bufferedReader(Charsets.UTF_8)
+                    ?.use { it.readText() }
+                    ?: error("No se pudo leer el archivo.")
+            }.onSuccess { csv ->
+                when (val resultado = InventarioCsv.importar(csv)) {
+                    is InventarioCsv.Resultado.Exito -> {
+                        if (state.plan == Plan.PRO) {
+                            viewModel.importarProductos(resultado.productos)
+                        } else {
+                            viewModel.mostrarMensaje(
+                                "La importación de inventario es una función PRO."
+                            )
+                        }
+                    }
+
+                    is InventarioCsv.Resultado.Error -> {
+                        viewModel.mostrarMensaje(resultado.mensaje)
+                    }
+                }
+            }.onFailure { error ->
+                viewModel.mostrarMensaje(
+                    error.message ?: "No se pudo importar el inventario."
+                )
+            }
+        }
+    }
 
     val products = state.productos.filter {
         query.isBlank() ||
@@ -183,6 +260,59 @@ fun InventarioScreen(
                     Text("Buscar por nombre o código")
                 }
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (state.plan == Plan.PRO) {
+                            exportLauncher.launch("MyPuM_inventario.csv")
+                        } else {
+                            showProScreen = true
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.FileDownload,
+                        contentDescription = null
+                    )
+
+                    Spacer(Modifier.padding(horizontal = 4.dp))
+
+                    Text("Exportar")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        if (state.plan == Plan.PRO) {
+                            importLauncher.launch(
+                                arrayOf(
+                                    "text/csv",
+                                    "text/comma-separated-values",
+                                    "text/*"
+                                )
+                            )
+                        } else {
+                            showProScreen = true
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.FileUpload,
+                        contentDescription = null
+                    )
+
+                    Spacer(Modifier.padding(horizontal = 4.dp))
+
+                    Text("Importar")
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
 

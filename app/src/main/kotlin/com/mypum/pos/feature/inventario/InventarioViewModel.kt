@@ -62,6 +62,12 @@ class InventarioViewModel @Inject constructor(
         }
     }
 
+    fun mostrarMensaje(message: String) {
+        _state.value = _state.value.copy(
+            message = message
+        )
+    }
+
     fun clearMessage() {
         _state.value = _state.value.copy(message = null)
     }
@@ -185,6 +191,44 @@ class InventarioViewModel @Inject constructor(
             }.onFailure { error ->
                 _state.value = _state.value.copy(
                     message = error.message ?: "No se pudo activar PRO"
+                )
+            }
+        }
+    }
+
+    fun importarProductos(productos: List<Producto>) {
+        viewModelScope.launch {
+            runCatching {
+                productos.forEach { producto ->
+                    val existente = producto.codigo
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { codigo ->
+                            productoRepository.buscarPorCodigo(codigo)
+                        }
+
+                    val productoGuardar = if (existente != null) {
+                        producto.copy(
+                            id = existente.id,
+                            createdAt = existente.createdAt,
+                            updatedAt = Instant.now()
+                        )
+                    } else {
+                        producto.copy(
+                            id = 0L,
+                            updatedAt = Instant.now()
+                        )
+                    }
+
+                    productoRepository.guardar(productoGuardar)
+                }
+            }.onSuccess {
+                _state.value = _state.value.copy(
+                    message = "Importación completada: ${productos.size} productos."
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    message = error.message
+                        ?: "No se pudo importar el inventario."
                 )
             }
         }

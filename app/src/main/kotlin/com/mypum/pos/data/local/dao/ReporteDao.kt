@@ -12,8 +12,8 @@ interface ReporteDao {
         SELECT
             p.id AS productoId,
             p.nombre AS nombre,
-            COALESCE(SUM(d.cantidad), 0.0) AS unidadesVendidas,
-            COALESCE(SUM(d.subtotal), 0.0) AS totalVendido
+            COALESCE(SUM(CAST(d.cantidad AS REAL)), 0.0) AS unidadesVendidas,
+            COALESCE(SUM(CAST(d.subtotal AS REAL)), 0.0) AS totalVendido
         FROM detalle_venta d
         INNER JOIN ventas v ON v.id = d.ventaId
         INNER JOIN productos p ON p.id = d.productoId
