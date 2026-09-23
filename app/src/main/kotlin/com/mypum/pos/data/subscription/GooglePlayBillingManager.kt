@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 
 @Singleton
 class GooglePlayBillingManager @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     private val subscriptionRepository: SubscriptionRepository
 ) : PurchasesUpdatedListener {
 
@@ -38,27 +38,45 @@ class GooglePlayBillingManager @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    private val billingClient: BillingClient =
+    /*
+     * BillingClient se crea de forma diferida.
+     * Así, abrir MyPuM PRO no puede hacer caer la aplicación
+     * solamente porque Google Play Billing no esté disponible.
+     */
+    private val billingClient: BillingClient by lazy {
         BillingClient.newBuilder(context)
             .setListener(this)
             .enablePendingPurchases(
                 PendingPurchasesParams.newBuilder()
-                    .enablePrepaidPlans()
+                    .enableOneTimeProducts()
                     .build()
             )
             .build()
+    }
 
     fun refreshPurchases() {
-        ensureConnected {
-            queryActiveSubscription()
+        runCatching {
+            ensureConnected {
+                queryActiveSubscription()
+            }
+        }.onFailure { error ->
+            _message.value =
+                error.message?.takeIf { it.isNotBlank() }
+                    ?: "Google Play no está disponible en este momento."
         }
     }
 
     fun launchProPurchase(activity: Activity) {
         _message.value = null
 
-        ensureConnected {
-            queryProductAndLaunch(activity)
+        runCatching {
+            ensureConnected {
+                queryProductAndLaunch(activity)
+            }
+        }.onFailure { error ->
+            _message.value =
+                error.message?.takeIf { it.isNotBlank() }
+                    ?: "No se pudo conectar con Google Play."
         }
     }
 
@@ -88,36 +106,49 @@ class GooglePlayBillingManager @Inject constructor(
     }
 
     private fun ensureConnected(onReady: () -> Unit) {
-        if (billingClient.isReady) {
-            onReady()
-            return
-        }
+        try {
+            if (billingClient.isReady) {
+                onReady()
+                return
+            }
 
-        billingClient.startConnection(
-            object : BillingClientStateListener {
+            billingClient.startConnection(
+                object : BillingClientStateListener {
 
-                override fun onBillingSetupFinished(
-                    billingResult: BillingResult
-                ) {
-                    if (
-                        billingResult.responseCode ==
-                            BillingClient.BillingResponseCode.OK
+                    override fun onBillingSetupFinished(
+                        billingResult: BillingResult
                     ) {
-                        onReady()
-                    } else {
-                        _message.value =
-                            billingResult.debugMessage.ifBlank {
-                                "Google Play no está disponible."
+                        if (
+                            billingResult.responseCode ==
+                                BillingClient.BillingResponseCode.OK
+                        ) {
+                            runCatching {
+                                onReady()
+                            }.onFailure { error ->
+                                _message.value =
+                                    error.message?.takeIf {
+                                        it.isNotBlank()
+                                    } ?: "Error al usar Google Play."
                             }
+                        } else {
+                            _message.value =
+                                billingResult.debugMessage.ifBlank {
+                                    "Google Play no está disponible."
+                                }
+                        }
+                    }
+
+                    override fun onBillingServiceDisconnected() {
+                        _message.value =
+                            "Se perdió la conexión con Google Play."
                     }
                 }
-
-                override fun onBillingServiceDisconnected() {
-                    _message.value =
-                        "Se perdió la conexión con Google Play."
-                }
-            }
-        )
+            )
+        } catch (error: Throwable) {
+            _message.value =
+                error.message?.takeIf { it.isNotBlank() }
+                    ?: "No se pudo iniciar Google Play Billing."
+        }
     }
 
     private fun queryProductAndLaunch(activity: Activity) {
@@ -126,7 +157,9 @@ class GooglePlayBillingManager @Inject constructor(
                 .setProductId(
                     SubscriptionPricing.PRO_ANNUAL_PRODUCT_ID
                 )
-                .setProductType(BillingClient.ProductType.SUBS)
+                .setProductType(
+                    BillingClient.ProductType.SUBS
+                )
                 .build()
 
         val params =
@@ -149,8 +182,7 @@ class GooglePlayBillingManager @Inject constructor(
                 return@queryProductDetailsAsync
             }
 
-            val details =
-                result.firstOrNull()
+            val details = result.firstOrNull()
 
             if (details == null) {
                 _message.value =
@@ -166,7 +198,7 @@ class GooglePlayBillingManager @Inject constructor(
 
             if (offer == null) {
                 _message.value =
-                    "El plan PRO no tiene una oferta disponible."
+                    "El plan PRO no tiene una oferta disponible en Google Play."
                 return@queryProductDetailsAsync
             }
 
@@ -183,20 +215,26 @@ class GooglePlayBillingManager @Inject constructor(
                     )
                     .build()
 
-            val launchResult =
-                billingClient.launchBillingFlow(
-                    activity,
-                    flowParams
-                )
+            try {
+                val launchResult =
+                    billingClient.launchBillingFlow(
+                        activity,
+                        flowParams
+                    )
 
-            if (
-                launchResult.responseCode !=
-                    BillingClient.BillingResponseCode.OK
-            ) {
+                if (
+                    launchResult.responseCode !=
+                        BillingClient.BillingResponseCode.OK
+                ) {
+                    _message.value =
+                        launchResult.debugMessage.ifBlank {
+                            "No se pudo abrir Google Play."
+                        }
+                }
+            } catch (error: Throwable) {
                 _message.value =
-                    launchResult.debugMessage.ifBlank {
-                        "No se pudo abrir Google Play."
-                    }
+                    error.message?.takeIf { it.isNotBlank() }
+                        ?: "No se pudo abrir la compra de Google Play."
             }
         }
     }
@@ -204,36 +242,44 @@ class GooglePlayBillingManager @Inject constructor(
     private fun queryActiveSubscription() {
         val params =
             QueryPurchasesParams.newBuilder()
-                .setProductType(BillingClient.ProductType.SUBS)
+                .setProductType(
+                    BillingClient.ProductType.SUBS
+                )
                 .build()
 
-        billingClient.queryPurchasesAsync(params) {
-                billingResult,
-                purchases ->
+        try {
+            billingClient.queryPurchasesAsync(params) {
+                    billingResult,
+                    purchases ->
 
-            if (
-                billingResult.responseCode !=
-                    BillingClient.BillingResponseCode.OK
-            ) {
-                return@queryPurchasesAsync
-            }
-
-            val proPurchase =
-                purchases.firstOrNull { purchase ->
-                    purchase.purchaseState ==
-                        Purchase.PurchaseState.PURCHASED &&
-                    purchase.products.contains(
-                        SubscriptionPricing.PRO_ANNUAL_PRODUCT_ID
-                    )
+                if (
+                    billingResult.responseCode !=
+                        BillingClient.BillingResponseCode.OK
+                ) {
+                    return@queryPurchasesAsync
                 }
 
-            if (proPurchase != null) {
-                processPurchase(proPurchase)
-            } else {
-                scope.launch {
-                    subscriptionRepository.setPlan(Plan.FREE)
+                val proPurchase =
+                    purchases.firstOrNull { purchase ->
+                        purchase.purchaseState ==
+                            Purchase.PurchaseState.PURCHASED &&
+                        purchase.products.contains(
+                            SubscriptionPricing.PRO_ANNUAL_PRODUCT_ID
+                        )
+                    }
+
+                if (proPurchase != null) {
+                    processPurchase(proPurchase)
+                } else {
+                    scope.launch {
+                        subscriptionRepository.setPlan(Plan.FREE)
+                    }
                 }
             }
+        } catch (error: Throwable) {
+            _message.value =
+                error.message?.takeIf { it.isNotBlank() }
+                    ?: "No se pudieron consultar las compras de Google Play."
         }
     }
 
@@ -256,21 +302,25 @@ class GooglePlayBillingManager @Inject constructor(
         if (!purchase.isAcknowledged) {
             val params =
                 AcknowledgePurchaseParams.newBuilder()
-                    .setPurchaseToken(
-                        purchase.purchaseToken
-                    )
+                    .setPurchaseToken(purchase.purchaseToken)
                     .build()
 
-            billingClient.acknowledgePurchase(params) { result ->
-                if (
-                    result.responseCode !=
-                        BillingClient.BillingResponseCode.OK
-                ) {
-                    _message.value =
-                        result.debugMessage.ifBlank {
-                            "PRO se compró, pero Google Play aún no confirmó la compra."
-                        }
+            try {
+                billingClient.acknowledgePurchase(params) { result ->
+                    if (
+                        result.responseCode !=
+                            BillingClient.BillingResponseCode.OK
+                    ) {
+                        _message.value =
+                            result.debugMessage.ifBlank {
+                                "PRO se compró, pero Google Play aún no confirmó la compra."
+                            }
+                    }
                 }
+            } catch (error: Throwable) {
+                _message.value =
+                    error.message?.takeIf { it.isNotBlank() }
+                        ?: "No se pudo confirmar la compra con Google Play."
             }
         }
     }
