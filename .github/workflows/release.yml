@@ -151,6 +151,76 @@ jobs:
 
           echo "Keystore y alias válidos."
 
+      - name: Validate private key password
+        env:
+          MYPUM_KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          MYPUM_KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+          MYPUM_KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
+        run: |
+          set -e
+
+          echo "Validando acceso a la clave privada..."
+
+          cat > /tmp/ValidateKey.java <<'JAVA'
+          import java.io.FileInputStream;
+          import java.security.KeyStore;
+
+          public class ValidateKey {
+              public static void main(String[] args) throws Exception {
+                  String file = args[0];
+                  String storePassword = args[1];
+                  String alias = args[2];
+                  String keyPassword = args[3];
+
+                  KeyStore ks = KeyStore.getInstance("JKS");
+
+                  try (FileInputStream in =
+                          new FileInputStream(file)) {
+                      ks.load(
+                          in,
+                          storePassword.toCharArray()
+                      );
+                  }
+
+                  if (!ks.containsAlias(alias)) {
+                      throw new RuntimeException(
+                          "El alias no existe en el keystore."
+                      );
+                  }
+
+                  KeyStore.PrivateKeyEntry entry =
+                      (KeyStore.PrivateKeyEntry)
+                          ks.getEntry(
+                              alias,
+                              new KeyStore.PasswordProtection(
+                                  keyPassword.toCharArray()
+                              )
+                          );
+
+                  if (entry == null ||
+                      entry.getPrivateKey() == null) {
+                      throw new RuntimeException(
+                          "No se pudo obtener la clave privada."
+                      );
+                  }
+
+                  System.out.println(
+                      "La contraseña de la clave privada es válida."
+                  );
+              }
+          }
+          JAVA
+
+          javac /tmp/ValidateKey.java
+
+          java \
+            -cp /tmp \
+            ValidateKey \
+            signing/mypum-upload-key.jks \
+            "$MYPUM_KEYSTORE_PASSWORD" \
+            "$MYPUM_KEY_ALIAS" \
+            "$MYPUM_KEY_PASSWORD"
+
       - name: Build signed AAB
         env:
           MYPUM_KEYSTORE_FILE: ${{ github.workspace }}/signing/mypum-upload-key.jks
