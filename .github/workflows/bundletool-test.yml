@@ -1,0 +1,206 @@
+name: MyPuM AAB to APK Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Verify AAB
+        run: |
+          set -e
+          test -s tools/aab-test/MyPuM-release.aab
+          ls -lh tools/aab-test/MyPuM-release.aab
+
+      - name: Download bundletool
+        run: |
+          set -e
+          curl -L \
+            -o bundletool.jar \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+
+          test -s bundletool.jar
+          java -jar bundletool.jar version
+
+      - name: Prepare signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MYPUM_KEYSTORE_BASE64 }}
+        run: |
+          set -e
+
+          test -n "$KEYSTORE_BASE64"
+
+          mkdir -p signing
+
+          printf '%s' "$KEYSTORE_BASE64" \
+            | base64 --decode \
+            > signing/mypum-upload-key.jks
+
+          test -s signing/mypum-upload-key.jks
+
+      - name: Resolve private key password
+        env:
+          STORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
+        run: |
+          set -e
+
+          cat > /tmp/ValidateKey.java <<'JAVA'
+          import java.io.FileInputStream;
+          import java.security.Key;
+          import java.security.KeyStore;
+          import java.security.PrivateKey;
+
+          public class ValidateKey {
+              static boolean valid(
+                  KeyStore ks,
+                  String alias,
+                  String password
+              ) {
+                  try {
+                      Key key = ks.getKey(
+                          alias,
+                          password.toCharArray()
+                      );
+                      return key instanceof PrivateKey;
+                  } catch (Exception e) {
+                      return false;
+                  }
+              }
+
+              public static void main(String[] args)
+                  throws Exception {
+
+                  String file = args[0];
+                  String storePassword = args[1];
+                  String keyPassword = args[2];
+                  String alias = args[3];
+
+                  KeyStore ks = KeyStore.getInstance("JKS");
+
+                  try (FileInputStream in =
+                      new FileInputStream(file)) {
+                      ks.load(
+                          in,
+                          storePassword.toCharArray()
+                      );
+                  }
+
+                  if (valid(ks, alias, keyPassword)) {
+                      System.out.println("KEY_PASSWORD_VALID");
+                      System.exit(0);
+                  }
+
+                  if (valid(ks, alias, storePassword)) {
+                      System.out.println("STORE_PASSWORD_VALID");
+                      System.exit(10);
+                  }
+
+                  System.out.println("NO_VALID_PASSWORD");
+                  System.exit(20);
+              }
+          }
+          JAVA
+
+          javac /tmp/ValidateKey.java
+
+          set +e
+
+          java \
+            -cp /tmp \
+            ValidateKey \
+            signing/mypum-upload-key.jks \
+            "$STORE_PASSWORD" \
+            "$KEY_PASSWORD" \
+            "$KEY_ALIAS"
+
+          RESULT=$?
+
+          set -e
+
+          if [ "$RESULT" -eq 0 ]; then
+            {
+              echo "MYPUM_EFFECTIVE_KEY_PASSWORD<<EOF"
+              echo "$KEY_PASSWORD"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+
+          elif [ "$RESULT" -eq 10 ]; then
+            {
+              echo "MYPUM_EFFECTIVE_KEY_PASSWORD<<EOF"
+              echo "$STORE_PASSWORD"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+
+          else
+            echo "::error::No se pudo validar la clave privada."
+            exit 1
+          fi
+
+      - name: Convert exact AAB to universal APK
+        env:
+          STORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.MYPUM_EFFECTIVE_KEY_PASSWORD }}
+        run: |
+          set -e
+
+          java \
+            -jar bundletool.jar build-apks \
+            --bundle=tools/aab-test/MyPuM-release.aab \
+            --output=MyPuM-universal.apks \
+            --mode=universal \
+            --ks=signing/mypum-upload-key.jks \
+            --ks-pass=pass:"$STORE_PASSWORD" \
+            --ks-key-alias="$KEY_ALIAS" \
+            --key-pass=pass:"$KEY_PASSWORD" \
+            --overwrite
+
+          test -s MyPuM-universal.apks
+
+      - name: Extract APK
+        run: |
+          set -e
+
+          mkdir -p extracted
+
+          unzip -o \
+            MyPuM-universal.apks \
+            -d extracted
+
+          test -s extracted/universal.apk
+
+          cp \
+            extracted/universal.apk \
+            MyPuM-release-universal.apk
+
+          ls -lh MyPuM-release-universal.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPuM-release-universal-apk
+          path: MyPuM-release-universal.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf signing
+          rm -f bundletool.jar
