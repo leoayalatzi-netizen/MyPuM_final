@@ -59,6 +59,9 @@ jobs:
           cat > /tmp/mypum-image-converter/ConvertImages.java <<'JAVA'
           import java.awt.image.BufferedImage;
           import java.io.File;
+          import java.nio.file.Files;
+          import java.nio.file.Path;
+          import java.nio.file.StandardCopyOption;
           import javax.imageio.ImageIO;
 
           public class ConvertImages {
@@ -74,19 +77,20 @@ jobs:
                           );
                       }
 
-                      File temp = new File(path + ".converted.png");
+                      Path target = file.toPath();
+                      Path temp = Path.of(path + ".converted.png");
 
-                      if (!ImageIO.write(image, "PNG", temp)) {
+                      if (!ImageIO.write(image, "PNG", temp.toFile())) {
                           throw new RuntimeException(
                               "No se pudo escribir PNG: " + path
                           );
                       }
 
-                      if (!temp.renameTo(file)) {
-                          throw new RuntimeException(
-                              "No se pudo reemplazar: " + path
-                          );
-                      }
+                      Files.move(
+                          temp,
+                          target,
+                          StandardCopyOption.REPLACE_EXISTING
+                      );
 
                       System.out.println(
                           "Convertido a PNG: " + path +
@@ -100,9 +104,35 @@ jobs:
 
           javac /tmp/mypum-image-converter/ConvertImages.java
 
-          java             -Djava.awt.headless=true             -cp /tmp/mypum-image-converter             ConvertImages             app/src/main/res/mipmap-mdpi/ic_launcher.png             app/src/main/res/mipmap-mdpi/ic_launcher_round.png             app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          find app/src/main/res -type f \
+            \( -name "ic_launcher.png" -o -name "ic_launcher_round.png" \) \
+            -print0 > /tmp/mypum-launcher-images.txt
 
-          file             app/src/main/res/mipmap-mdpi/ic_launcher.png             app/src/main/res/mipmap-mdpi/ic_launcher_round.png             app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          if [ ! -s /tmp/mypum-launcher-images.txt ]; then
+            echo "::error::No se encontraron iconos launcher."
+            exit 1
+          fi
+
+          while IFS= read -r -d '' image; do
+            java \
+              -Djava.awt.headless=true \
+              -cp /tmp/mypum-image-converter \
+              ConvertImages \
+              "$image"
+          done < /tmp/mypum-launcher-images.txt
+
+          echo "Verificando firmas PNG..."
+
+          while IFS= read -r -d '' image; do
+            if ! head -c 8 "$image" | od -An -tx1 | grep -q "89 50 4e 47 0d 0a 1a 0a"; then
+              echo "::error::El archivo no terminó como PNG válido: $image"
+              exit 1
+            fi
+
+            file "$image"
+          done < /tmp/mypum-launcher-images.txt
+
+          echo "Todos los iconos launcher son PNG válidos."
 
       - name: Build signed AAB
         env:
