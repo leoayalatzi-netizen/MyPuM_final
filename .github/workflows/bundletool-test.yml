@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -15,25 +16,113 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify AAB
+      - name: Find latest release artifact
+        id: find_artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           set -e
-          test -s tools/aab-test/MyPuM-release.aab
-          ls -lh tools/aab-test/MyPuM-release.aab
+
+          echo "Buscando ejecuciones recientes de release..."
+
+          RUNS=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/runs?per_page=20")
+
+          RUN_ID=$(echo "$RUNS" | jq -r '
+            .workflow_runs[]
+            | select(.path == ".github/workflows/release.yml")
+            | select(.status == "completed")
+            | select(.conclusion == "success")
+            | .id
+          ' | head -n 1)
+
+          if [ -z "$RUN_ID" ]; then
+            echo "::error::No se encontró una ejecución exitosa de release."
+            exit 1
+          fi
+
+          echo "RUN_ID=$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact AAB artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ steps.find_artifact.outputs.run_id }}
+        run: |
+          set -e
+
+          mkdir -p release-artifact
+
+          echo "Buscando artifacts de la ejecución $RUN_ID..."
+
+          ARTIFACTS=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts")
+
+          echo "$ARTIFACTS" | jq -r '.artifacts[] | "\(.id) \(.name)"'
+
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '
+            .artifacts[]
+            | select(.name == "MyPuM-release-aab")
+            | .id
+          ' | head -n 1)
+
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "::error::No se encontró el artifact MyPuM-release-aab."
+            exit 1
+          fi
+
+          echo "ARTIFACT_ID=$ARTIFACT_ID"
+
+          curl -fL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -o release-artifact/artifact.zip \
+            "https://api.github.com/repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip"
+
+          unzip -l release-artifact/artifact.zip
+
+          unzip -o \
+            release-artifact/artifact.zip \
+            -d release-artifact/extracted
+
+          AAB=$(find release-artifact/extracted \
+            -type f \
+            -name "*.aab" \
+            | head -n 1)
+
+          if [ -z "$AAB" ]; then
+            echo "::error::El artifact no contiene ningún AAB."
+            exit 1
+          fi
+
+          cp "$AAB" tools-aab.aab
+
+          echo "AAB exacto recuperado:"
+          ls -lh tools-aab.aab
+
+          file tools-aab.aab
 
       - name: Download bundletool
         run: |
           set -e
-          curl -L \
+
+          curl -fL \
             -o bundletool.jar \
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
 
           test -s bundletool.jar
+
           java -jar bundletool.jar version
 
       - name: Prepare signing key
@@ -86,27 +175,23 @@ jobs:
               public static void main(String[] args)
                   throws Exception {
 
-                  String file = args[0];
-                  String storePassword = args[1];
-                  String keyPassword = args[2];
-                  String alias = args[3];
-
                   KeyStore ks = KeyStore.getInstance("JKS");
 
                   try (FileInputStream in =
-                      new FileInputStream(file)) {
+                      new FileInputStream(args[0])) {
+
                       ks.load(
                           in,
-                          storePassword.toCharArray()
+                          args[1].toCharArray()
                       );
                   }
 
-                  if (valid(ks, alias, keyPassword)) {
+                  if (valid(ks, args[3], args[2])) {
                       System.out.println("KEY_PASSWORD_VALID");
                       System.exit(0);
                   }
 
-                  if (valid(ks, alias, storePassword)) {
+                  if (valid(ks, args[3], args[1])) {
                       System.out.println("STORE_PASSWORD_VALID");
                       System.exit(10);
                   }
@@ -162,7 +247,7 @@ jobs:
 
           java \
             -jar bundletool.jar build-apks \
-            --bundle=tools/aab-test/MyPuM-release.aab \
+            --bundle=tools-aab.aab \
             --output=MyPuM-universal.apks \
             --mode=universal \
             --ks=signing/mypum-upload-key.jks \
@@ -173,7 +258,7 @@ jobs:
 
           test -s MyPuM-universal.apks
 
-      - name: Extract APK
+      - name: Extract universal APK
         run: |
           set -e
 
@@ -204,3 +289,4 @@ jobs:
         run: |
           rm -rf signing
           rm -f bundletool.jar
+          rm -f tools-aab.aab
