@@ -52,6 +52,58 @@ jobs:
 
           echo "Keystore preparado."
 
+      - name: Convert launcher images to valid PNG
+        run: |
+          mkdir -p /tmp/mypum-image-converter
+
+          cat > /tmp/mypum-image-converter/ConvertImages.java <<'JAVA'
+          import java.awt.image.BufferedImage;
+          import java.io.File;
+          import javax.imageio.ImageIO;
+
+          public class ConvertImages {
+              public static void main(String[] args) throws Exception {
+                  for (String path : args) {
+                      File file = new File(path);
+
+                      BufferedImage image = ImageIO.read(file);
+
+                      if (image == null) {
+                          throw new RuntimeException(
+                              "No se pudo leer la imagen: " + path
+                          );
+                      }
+
+                      File temp = new File(path + ".converted.png");
+
+                      if (!ImageIO.write(image, "PNG", temp)) {
+                          throw new RuntimeException(
+                              "No se pudo escribir PNG: " + path
+                          );
+                      }
+
+                      if (!temp.renameTo(file)) {
+                          throw new RuntimeException(
+                              "No se pudo reemplazar: " + path
+                          );
+                      }
+
+                      System.out.println(
+                          "Convertido a PNG: " + path +
+                          " (" + image.getWidth() + "x" +
+                          image.getHeight() + ")"
+                      );
+                  }
+              }
+          }
+          JAVA
+
+          javac /tmp/mypum-image-converter/ConvertImages.java
+
+          java             -Djava.awt.headless=true             -cp /tmp/mypum-image-converter             ConvertImages             app/src/main/res/mipmap-mdpi/ic_launcher.png             app/src/main/res/mipmap-mdpi/ic_launcher_round.png             app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+
+          file             app/src/main/res/mipmap-mdpi/ic_launcher.png             app/src/main/res/mipmap-mdpi/ic_launcher_round.png             app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+
       - name: Build signed AAB
         env:
           MYPUM_KEYSTORE_FILE: ${{ github.workspace }}/signing/mypum-upload-key.jks
