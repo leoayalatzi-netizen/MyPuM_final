@@ -151,7 +151,7 @@ jobs:
 
           echo "Keystore y alias válidos."
 
-      - name: Validate private key password
+      - name: Diagnose private key password
         env:
           MYPUM_KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
           MYPUM_KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
@@ -159,7 +159,7 @@ jobs:
         run: |
           set -e
 
-          echo "Validando acceso a la clave privada..."
+          echo "Comprobando contraseña de la clave privada sin mostrar secretos..."
 
           cat > /tmp/ValidateKey.java <<'JAVA'
           import java.io.FileInputStream;
@@ -168,11 +168,27 @@ jobs:
           import java.security.PrivateKey;
 
           public class ValidateKey {
+              static boolean valid(
+                  KeyStore ks,
+                  String alias,
+                  String password
+              ) throws Exception {
+                  try {
+                      Key key = ks.getKey(
+                          alias,
+                          password.toCharArray()
+                      );
+                      return key instanceof PrivateKey;
+                  } catch (Exception e) {
+                      return false;
+                  }
+              }
+
               public static void main(String[] args) throws Exception {
                   String file = args[0];
                   String storePassword = args[1];
-                  String alias = args[2];
-                  String keyPassword = args[3];
+                  String keyPassword = args[2];
+                  String alias = args[3];
 
                   KeyStore ks = KeyStore.getInstance("JKS");
 
@@ -184,40 +200,42 @@ jobs:
                       );
                   }
 
-                  if (!ks.containsAlias(alias)) {
-                      throw new RuntimeException(
-                          "El alias no existe en el keystore."
-                      );
-                  }
-
-                  Key key =
-                      ks.getKey(
+                  boolean configured =
+                      valid(
+                          ks,
                           alias,
-                          keyPassword.toCharArray()
+                          keyPassword
                       );
 
-                  if (!(key instanceof PrivateKey)) {
-                      throw new RuntimeException(
-                          "La entrada no contiene una clave privada válida."
+                  boolean sameAsStore =
+                      valid(
+                          ks,
+                          alias,
+                          storePassword
                       );
-                  }
 
                   System.out.println(
-                      "La contraseña de la clave privada es válida."
+                      "MYPUM_KEY_PASSWORD: " +
+                      (configured ? "VALIDA" : "NO VALIDA")
                   );
+
+                  System.out.println(
+                      "MYPUM_KEYSTORE_PASSWORD como key password: " +
+                      (sameAsStore ? "VALIDA" : "NO VALIDA")
+                  );
+
+                  if (!configured && !sameAsStore) {
+                      System.out.println(
+                          "La clave privada usa una contraseña distinta."
+                      );
+                  }
               }
           }
           JAVA
 
           javac /tmp/ValidateKey.java
 
-          java \
-            -cp /tmp \
-            ValidateKey \
-            signing/mypum-upload-key.jks \
-            "$MYPUM_KEYSTORE_PASSWORD" \
-            "$MYPUM_KEY_ALIAS" \
-            "$MYPUM_KEY_PASSWORD"
+          java             -cp /tmp             ValidateKey             signing/mypum-upload-key.jks             "$MYPUM_KEYSTORE_PASSWORD"             "$MYPUM_KEY_PASSWORD"             "$MYPUM_KEY_ALIAS"
 
       - name: Build signed AAB
         env:
