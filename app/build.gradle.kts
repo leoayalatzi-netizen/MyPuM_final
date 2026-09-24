@@ -6,12 +6,39 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 android {
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = System.getenv("MYPUM_KEYSTORE_FILE")
+            val keystorePassword = System.getenv("MYPUM_KEYSTORE_PASSWORD")
+            val keyAliasValue = System.getenv("MYPUM_KEY_ALIAS")
+            val keyPasswordValue = System.getenv("MYPUM_KEY_PASSWORD")
+
+            if (!keystoreFile.isNullOrBlank()) {
+                storeFile = file(keystoreFile)
+            }
+
+            if (!keystorePassword.isNullOrBlank()) {
+                storePassword = keystorePassword
+            }
+
+            if (!keyAliasValue.isNullOrBlank()) {
+                keyAlias = keyAliasValue
+            }
+
+            if (!keyPasswordValue.isNullOrBlank()) {
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
+
+
     namespace = "com.mypum.pos"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.mypum.pos"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -21,6 +48,12 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+
+            val keystoreFile = System.getenv("MYPUM_KEYSTORE_FILE")
+            if (!keystoreFile.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
