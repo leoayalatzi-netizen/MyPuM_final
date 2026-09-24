@@ -151,15 +151,13 @@ jobs:
 
           echo "Keystore y alias válidos."
 
-      - name: Diagnose private key password
+      - name: Resolve private key password
         env:
           MYPUM_KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
-          MYPUM_KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+          MYPUM_KEY_PASSWORD: ${{ env.MYPUM_EFFECTIVE_KEY_PASSWORD }}
           MYPUM_KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
         run: |
           set -e
-
-          echo "Comprobando contraseña de la clave privada..."
 
           cat > /tmp/ValidateKey.java <<'JAVA'
           import java.io.FileInputStream;
@@ -168,7 +166,6 @@ jobs:
           import java.security.PrivateKey;
 
           public class ValidateKey {
-
               static boolean valid(
                   KeyStore ks,
                   String alias,
@@ -179,9 +176,7 @@ jobs:
                           alias,
                           password.toCharArray()
                       );
-
                       return key instanceof PrivateKey;
-
                   } catch (Exception e) {
                       return false;
                   }
@@ -200,70 +195,37 @@ jobs:
 
                   try (FileInputStream in =
                           new FileInputStream(file)) {
-
                       ks.load(
                           in,
                           storePassword.toCharArray()
                       );
                   }
 
-                  boolean configured =
-                      valid(
-                          ks,
-                          alias,
-                          keyPassword
-                      );
-
-                  boolean sameAsStore =
-                      valid(
-                          ks,
-                          alias,
-                          storePassword
-                      );
-
-                  if (configured) {
+                  if (valid(ks, alias, keyPassword)) {
                       System.out.println(
-                          "RESULTADO_KEY_PASSWORD=VALIDA"
+                          "KEY_PASSWORD_VALID"
                       );
-                  } else {
-                      System.out.println(
-                          "RESULTADO_KEY_PASSWORD=NO_VALIDA"
-                      );
+                      System.exit(0);
                   }
 
-                  if (sameAsStore) {
+                  if (valid(ks, alias, storePassword)) {
                       System.out.println(
-                          "RESULTADO_STORE_PASSWORD_COMO_KEY=VALIDA"
+                          "STORE_PASSWORD_VALID"
                       );
-                  } else {
-                      System.out.println(
-                          "RESULTADO_STORE_PASSWORD_COMO_KEY=NO_VALIDA"
-                      );
+                      System.exit(10);
                   }
 
-                  if (!configured && !sameAsStore) {
-
-                      System.out.println(
-                          "RESULTADO=NINGUNA_CONTRASENA_FUNCIONA"
-                      );
-
-                  } else if (!configured && sameAsStore) {
-
-                      System.out.println(
-                          "RESULTADO=USAR_STORE_PASSWORD"
-                      );
-
-                  } else {
-
-                      System.out.println(
-                          "RESULTADO=KEY_PASSWORD_CORRECTA"
-                      );
-                  }
+                  System.out.println(
+                      "NO_VALID_PASSWORD"
+                  );
+                  System.exit(20);
               }
           }
           JAVA
 
           javac /tmp/ValidateKey.java
+
+          set +e
 
           java \
             -cp /tmp \
@@ -273,11 +235,38 @@ jobs:
             "$MYPUM_KEY_PASSWORD" \
             "$MYPUM_KEY_ALIAS"
 
+          RESULT=$?
+
+          set -e
+
+          if [ "$RESULT" -eq 0 ]; then
+            echo "La contraseña configurada para la clave privada es válida."
+
+            {
+              echo "MYPUM_EFFECTIVE_KEY_PASSWORD<<EOF"
+              echo "$MYPUM_KEY_PASSWORD"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+
+          elif [ "$RESULT" -eq 10 ]; then
+            echo "La contraseña del keystore también es válida para la clave privada."
+
+            {
+              echo "MYPUM_EFFECTIVE_KEY_PASSWORD<<EOF"
+              echo "$MYPUM_KEYSTORE_PASSWORD"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+
+          else
+            echo "::error::Ninguna de las credenciales proporcionadas puede abrir la clave privada."
+            exit 1
+          fi
+
       - name: Build signed AAB
         env:
           MYPUM_KEYSTORE_FILE: ${{ github.workspace }}/signing/mypum-upload-key.jks
           MYPUM_KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
-          MYPUM_KEY_PASSWORD: ${{ secrets.MYPUM_KEY_PASSWORD }}
+          MYPUM_KEY_PASSWORD: ${{ env.MYPUM_EFFECTIVE_KEY_PASSWORD }}
           MYPUM_KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
         run: |
           chmod +x ./gradlew
