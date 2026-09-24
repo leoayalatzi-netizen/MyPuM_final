@@ -159,7 +159,7 @@ jobs:
         run: |
           set -e
 
-          echo "Comprobando contraseña de la clave privada sin mostrar secretos..."
+          echo "Comprobando contraseña de la clave privada..."
 
           cat > /tmp/ValidateKey.java <<'JAVA'
           import java.io.FileInputStream;
@@ -168,32 +168,39 @@ jobs:
           import java.security.PrivateKey;
 
           public class ValidateKey {
+
               static boolean valid(
                   KeyStore ks,
                   String alias,
                   String password
-              ) throws Exception {
+              ) {
                   try {
                       Key key = ks.getKey(
                           alias,
                           password.toCharArray()
                       );
+
                       return key instanceof PrivateKey;
+
                   } catch (Exception e) {
                       return false;
                   }
               }
 
-              public static void main(String[] args) throws Exception {
+              public static void main(String[] args)
+                  throws Exception {
+
                   String file = args[0];
                   String storePassword = args[1];
                   String keyPassword = args[2];
                   String alias = args[3];
 
-                  KeyStore ks = KeyStore.getInstance("JKS");
+                  KeyStore ks =
+                      KeyStore.getInstance("JKS");
 
                   try (FileInputStream in =
                           new FileInputStream(file)) {
+
                       ks.load(
                           in,
                           storePassword.toCharArray()
@@ -214,19 +221,42 @@ jobs:
                           storePassword
                       );
 
-                  System.out.println(
-                      "MYPUM_KEY_PASSWORD: " +
-                      (configured ? "VALIDA" : "NO VALIDA")
-                  );
+                  if (configured) {
+                      System.out.println(
+                          "RESULTADO_KEY_PASSWORD=VALIDA"
+                      );
+                  } else {
+                      System.out.println(
+                          "RESULTADO_KEY_PASSWORD=NO_VALIDA"
+                      );
+                  }
 
-                  System.out.println(
-                      "MYPUM_KEYSTORE_PASSWORD como key password: " +
-                      (sameAsStore ? "VALIDA" : "NO VALIDA")
-                  );
+                  if (sameAsStore) {
+                      System.out.println(
+                          "RESULTADO_STORE_PASSWORD_COMO_KEY=VALIDA"
+                      );
+                  } else {
+                      System.out.println(
+                          "RESULTADO_STORE_PASSWORD_COMO_KEY=NO_VALIDA"
+                      );
+                  }
 
                   if (!configured && !sameAsStore) {
+
                       System.out.println(
-                          "La clave privada usa una contraseña distinta."
+                          "RESULTADO=NINGUNA_CONTRASENA_FUNCIONA"
+                      );
+
+                  } else if (!configured && sameAsStore) {
+
+                      System.out.println(
+                          "RESULTADO=USAR_STORE_PASSWORD"
+                      );
+
+                  } else {
+
+                      System.out.println(
+                          "RESULTADO=KEY_PASSWORD_CORRECTA"
                       );
                   }
               }
@@ -235,7 +265,13 @@ jobs:
 
           javac /tmp/ValidateKey.java
 
-          java             -cp /tmp             ValidateKey             signing/mypum-upload-key.jks             "$MYPUM_KEYSTORE_PASSWORD"             "$MYPUM_KEY_PASSWORD"             "$MYPUM_KEY_ALIAS"
+          java \
+            -cp /tmp \
+            ValidateKey \
+            signing/mypum-upload-key.jks \
+            "$MYPUM_KEYSTORE_PASSWORD" \
+            "$MYPUM_KEY_PASSWORD" \
+            "$MYPUM_KEY_ALIAS"
 
       - name: Build signed AAB
         env:
