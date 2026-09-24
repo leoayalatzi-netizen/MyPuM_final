@@ -45,8 +45,6 @@ fun ProScreen(
     onBack: () -> Unit = {},
     viewModel: ProViewModel = hiltViewModel()
 ) {
-    val price = SubscriptionPricing.PRO_ANNUAL_PRICE
-    val currency = SubscriptionPricing.PRO_ANNUAL_CURRENCY
 
     val plan by viewModel.plan.collectAsStateWithLifecycle()
     val isPro = plan == Plan.PRO

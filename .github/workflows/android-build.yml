@@ -27,7 +27,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
           accept-android-sdk-licenses: true
 
       - name: Setup Gradle
@@ -52,59 +52,65 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --version
 
-      - name: Build Debug APK
+      - name: Build Debug APK and Release AAB
         id: build
         shell: bash
         run: |
           set -o pipefail
 
-          ./gradlew assembleDebug \
-            --stacktrace \
-            --info \
-            --no-daemon \
-            --console=plain \
-            2>&1 | tee build.log
+          ./gradlew assembleDebug bundleRelease             --stacktrace             --info             --no-daemon             --console=plain             2>&1 | tee build.log
 
-      - name: Locate APK
+      - name: Locate Build Outputs
         if: always()
         run: |
           echo "=== APK FILES ==="
 
-          find . \
-            -type f \
-            -name "*.apk" \
-            -not -path "./.git/*" \
-            -print \
-            | sort
+          find app/build/outputs             -type f             -name "*.apk"             -print             | sort || true
+
+          echo
+          echo "=== AAB FILES ==="
+
+          find app/build/outputs             -type f             -name "*.aab"             -print             | sort || true
 
           echo
           echo "=== APP BUILD ==="
 
           if [ -d app/build ]; then
-            find app/build -maxdepth 6 -type f | sort
+            find app/build/outputs -maxdepth 6 -type f | sort
           else
             echo "app/build NO EXISTE"
           fi
 
-      - name: Prepare APK
+      - name: Prepare Artifacts
         if: success()
         run: |
           set -e
 
-          APK="$(find app/build -type f -name "*.apk" | head -n 1)"
+          mkdir -p artifacts
+
+          APK="$(find app/build/outputs -type f -name "*.apk" | head -n 1)"
+          AAB="$(find app/build/outputs -type f -name "*.aab" | head -n 1)"
 
           if [ -z "$APK" ]; then
             echo "::error::Gradle terminó correctamente pero no se encontró ningún APK."
             exit 1
           fi
 
-          mkdir -p artifacts
+          if [ -z "$AAB" ]; then
+            echo "::error::Gradle terminó correctamente pero no se encontró ningún AAB."
+            exit 1
+          fi
 
           cp "$APK" artifacts/MyPuM-debug.apk
+          cp "$AAB" artifacts/MyPuM-release.aab
 
           echo
           echo "=== APK FINAL ==="
           ls -lh artifacts/MyPuM-debug.apk
+
+          echo
+          echo "=== AAB FINAL ==="
+          ls -lh artifacts/MyPuM-release.aab
 
       - name: Upload APK
         if: success()
@@ -112,6 +118,14 @@ jobs:
         with:
           name: MyPuM-debug-apk
           path: artifacts/MyPuM-debug.apk
+          if-no-files-found: error
+
+      - name: Upload AAB
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPuM-release-aab
+          path: artifacts/MyPuM-release.aab
           if-no-files-found: error
 
       - name: Upload build log

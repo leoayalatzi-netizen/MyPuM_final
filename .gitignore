@@ -30,3 +30,6 @@ keystore.properties
 /app/debug/
 *.log
 .kotlin/
+
+# Local Android signing keys
+signing/
