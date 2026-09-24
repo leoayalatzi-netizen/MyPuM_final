@@ -99,7 +99,7 @@ fun ProScreen(
                 )
 
                 Text(
-                    text = "$price $currency / año",
+                    text = "Suscripción PRO anual",
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
