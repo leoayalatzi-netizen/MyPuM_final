@@ -163,7 +163,9 @@ jobs:
 
           cat > /tmp/ValidateKey.java <<'JAVA'
           import java.io.FileInputStream;
+          import java.security.Key;
           import java.security.KeyStore;
+          import java.security.PrivateKey;
 
           public class ValidateKey {
               public static void main(String[] args) throws Exception {
@@ -188,19 +190,15 @@ jobs:
                       );
                   }
 
-                  KeyStore.PrivateKeyEntry entry =
-                      (KeyStore.PrivateKeyEntry)
-                          ks.getEntry(
-                              alias,
-                              new KeyStore.PasswordProtection(
-                                  keyPassword.toCharArray()
-                              )
-                          );
+                  Key key =
+                      ks.getKey(
+                          alias,
+                          keyPassword.toCharArray()
+                      );
 
-                  if (entry == null ||
-                      entry.getPrivateKey() == null) {
+                  if (!(key instanceof PrivateKey)) {
                       throw new RuntimeException(
-                          "No se pudo obtener la clave privada."
+                          "La entrada no contiene una clave privada válida."
                       );
                   }
 
