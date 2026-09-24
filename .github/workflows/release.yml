@@ -134,6 +134,23 @@ jobs:
 
           echo "Todos los iconos launcher son PNG válidos."
 
+      - name: Validate signing key
+        env:
+          MYPUM_KEYSTORE_PASSWORD: ${{ secrets.MYPUM_KEYSTORE_PASSWORD }}
+          MYPUM_KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
+        run: |
+          set -e
+
+          echo "Validando keystore y alias..."
+
+          keytool -list \
+            -keystore signing/mypum-upload-key.jks \
+            -storepass "$MYPUM_KEYSTORE_PASSWORD" \
+            -alias "$MYPUM_KEY_ALIAS" \
+            >/tmp/mypum-keystore-check.txt
+
+          echo "Keystore y alias válidos."
+
       - name: Build signed AAB
         env:
           MYPUM_KEYSTORE_FILE: ${{ github.workspace }}/signing/mypum-upload-key.jks
