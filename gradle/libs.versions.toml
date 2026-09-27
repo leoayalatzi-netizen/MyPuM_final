@@ -20,7 +20,7 @@ serialization = "1.6.2"
 firebaseBom = "32.7.4"
 junit = "4.13.2"
 androidxTest = "1.1.5"
-billing = "7.1.1"
+billing = "8.0.0"
 espresso = "3.5.1"
 
 [plugins]

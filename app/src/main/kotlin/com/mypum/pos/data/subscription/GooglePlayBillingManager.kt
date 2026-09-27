@@ -182,7 +182,7 @@ class GooglePlayBillingManager @Inject constructor(
                 return@queryProductDetailsAsync
             }
 
-            val details = result.firstOrNull()
+            val details = result.productDetailsList.firstOrNull()
 
             if (details == null) {
                 _message.value =
