@@ -270,7 +270,25 @@ jobs:
           MYPUM_KEY_ALIAS: ${{ secrets.MYPUM_KEY_ALIAS }}
         run: |
           chmod +x ./gradlew
-          ./gradlew bundleRelease
+          set -o pipefail
+          ./gradlew bundleRelease \
+            --stacktrace \
+            --info \
+            --no-daemon \
+            --console=plain 2>&1 | tee build-release.log
+
+
+      - name: Diagnostico Hilt KSP
+        if: always()
+        run: |
+          echo "=== DIAGNOSTICO HILT/KSP ==="
+          if [ -f build-release.log ]; then
+            grep -n -E -B 8 -A 15 \
+              'error:|e: |Hilt|KSP|Processing did not complete|Symbol processing' \
+              build-release.log | tail -n 300 || true
+          else
+            echo "No existe build-release.log"
+          fi
 
       - name: Prepare artifact
         run: |
