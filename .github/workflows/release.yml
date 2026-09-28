@@ -281,23 +281,40 @@ jobs:
       - name: Diagnostico Hilt KSP
         if: always()
         run: |
-          echo "=== DIAGNOSTICO HILT/KSP ==="
-          if [ -f build-release.log ]; then
-            echo "--- ERRORES DIRECTOS ---"
-            grep -n -E -B 5 -A 12 \
-              '(^|[[:space:]])(e: |error:|ERROR:|Execution failed for task|Caused by:|Processing did not complete|Symbol processing)' \
-              build-release.log | head -n 500 || true
+          echo "=================================================="
+          echo "=== DIAGNOSTICO HILT/KSP - INICIO ==============="
+          echo "=================================================="
 
-            echo "--- TAREAS KSP/HILT ---"
-            grep -n -E -B 3 -A 8 \
-              'ksp.*Release|KSP|Hilt|hilt|dagger' \
-              build-release.log | head -n 300 || true
-
-            echo "--- FINAL DEL BUILD ---"
-            tail -n 120 build-release.log || true
-          else
-            echo "No existe build-release.log"
+          if [ ! -f build-release.log ]; then
+            echo "ERROR: no existe build-release.log"
+            exit 0
           fi
+
+          echo "Archivo de log encontrado:"
+          wc -l build-release.log
+          echo
+
+          echo "=== PRIMEROS ERRORES DEL COMPILADOR ============="
+          grep -n -m 20 -E \
+            '(^e: |^error:|error: |Execution failed for task|Caused by:|Processing did not complete)' \
+            build-release.log || true
+
+          echo
+          echo "=== ERROR KSP/HILT ================================="
+          grep -n -m 30 -E \
+            'kspReleaseKotlin|ksp.*Release|Hilt|Dagger|dagger|KSP' \
+            build-release.log || true
+
+          echo
+          echo "=== RESUMEN FINAL =================================="
+          grep -n -E \
+            'FAILURE:|BUILD FAILED|What went wrong|Execution failed for task|^e: |^error:' \
+            build-release.log | tail -n 80 || true
+
+          echo
+          echo "=================================================="
+          echo "=== DIAGNOSTICO HILT/KSP - FIN =================="
+          echo "=================================================="
 
       - name: Prepare artifact
         run: |
