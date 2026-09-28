@@ -281,40 +281,94 @@ jobs:
       - name: Diagnostico Hilt KSP
         if: always()
         run: |
-          echo "=================================================="
-          echo "=== DIAGNOSTICO HILT/KSP - INICIO ==============="
-          echo "=================================================="
+          echo "==================================================" | tee diagnostico-release.txt
+          echo "DIAGNOSTICO AUTOMATICO MyPuM RELEASE" | tee -a diagnostico-release.txt
+          echo "==================================================" | tee -a diagnostico-release.txt
+          echo "" | tee -a diagnostico-release.txt
 
           if [ ! -f build-release.log ]; then
-            echo "ERROR: no existe build-release.log"
-            exit 0
+            echo "ERROR: build-release.log no existe." | tee -a diagnostico-release.txt
+          else
+            echo "LOG ENCONTRADO" | tee -a diagnostico-release.txt
+            echo "Lineas del log:" | tee -a diagnostico-release.txt
+            wc -l build-release.log | tee -a diagnostico-release.txt
+            echo "" | tee -a diagnostico-release.txt
+
+            echo "==================================================" | tee -a diagnostico-release.txt
+            echo "1. PRIMEROS ERRORES ENCONTRADOS" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+
+            grep -n -E \
+              '(^e: |^error:|error: |ERROR:|Execution failed for task|Caused by:|What went wrong|Processing did not complete|Symbol processing)' \
+              build-release.log | head -n 100 | tee -a diagnostico-release.txt || true
+
+            echo "" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+            echo "2. KSP / HILT / DAGGER" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+
+            grep -n -E \
+              'kspReleaseKotlin|ksp.*Release|KSP|Hilt|hilt|Dagger|dagger' \
+              build-release.log | head -n 150 | tee -a diagnostico-release.txt || true
+
+            echo "" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+            echo "3. CONTEXTO ALREDEDOR DE LOS ERRORES" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+
+            grep -n -E \
+              '(^e: |^error:|error: |Execution failed for task|Caused by:)' \
+              build-release.log | cut -d: -f1 | head -n 20 | while read line; do
+                if [ -n "$line" ]; then
+                  start_line=$((line > 8 ? line - 8 : 1))
+                  end_line=$((line + 15))
+                  echo "" | tee -a diagnostico-release.txt
+                  echo "--- lineas $start_line-$end_line ---" | tee -a diagnostico-release.txt
+                  sed -n "${start_line},${end_line}p" build-release.log | tee -a diagnostico-release.txt
+                fi
+            done
+
+            echo "" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+            echo "4. RESUMEN FINAL DE GRADLE" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+
+            grep -n -E \
+              'FAILURE:|BUILD FAILED|BUILD SUCCESSFUL|What went wrong|Execution failed for task|37 actionable|actionable tasks' \
+              build-release.log | tail -n 100 | tee -a diagnostico-release.txt || true
+
+            echo "" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+            echo "5. ULTIMAS 150 LINEAS DEL BUILD" | tee -a diagnostico-release.txt
+            echo "==================================================" | tee -a diagnostico-release.txt
+
+            tail -n 150 build-release.log | tee -a diagnostico-release.txt || true
           fi
 
-          echo "Archivo de log encontrado:"
-          wc -l build-release.log
-          echo
+          mkdir -p artifacts
+          cp diagnostico-release.txt artifacts/diagnostico-release.txt
 
-          echo "=== PRIMEROS ERRORES DEL COMPILADOR ============="
-          grep -n -m 20 -E \
-            '(^e: |^error:|error: |Execution failed for task|Caused by:|Processing did not complete)' \
-            build-release.log || true
+          if [ -f build-release.log ]; then
+            cp build-release.log artifacts/build-release.log
+          fi
 
-          echo
-          echo "=== ERROR KSP/HILT ================================="
-          grep -n -m 30 -E \
-            'kspReleaseKotlin|ksp.*Release|Hilt|Dagger|dagger|KSP' \
-            build-release.log || true
-
-          echo
-          echo "=== RESUMEN FINAL =================================="
-          grep -n -E \
-            'FAILURE:|BUILD FAILED|What went wrong|Execution failed for task|^e: |^error:' \
-            build-release.log | tail -n 80 || true
-
-          echo
+          echo ""
           echo "=================================================="
-          echo "=== DIAGNOSTICO HILT/KSP - FIN =================="
+          echo "DIAGNOSTICO GENERADO:"
+          echo "artifacts/diagnostico-release.txt"
+          echo "artifacts/build-release.log"
           echo "=================================================="
+
+      - name: Upload diagnostic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyPuM-release-diagnostics
+          path: |
+            artifacts/diagnostico-release.txt
+            artifacts/build-release.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Prepare artifact
         run: |
